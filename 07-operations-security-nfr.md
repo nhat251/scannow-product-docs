@@ -302,6 +302,10 @@ Requirements:
 
 ### 15.1 Backend tests
 
+**QUY TAC BAT BUOC**:
+- Voi moi doan code hoac tinh nang moi (API, Service, Handler, etc.) them vao backend, **luon luon phai tao testcase** (Unit Test / Integration Test) tuong ung.
+- Code chi duoc tich hop hoac coi la hoan thanh khi toan bo cac testcase deu chay thanh cong (pass het) va bao phu day du cac truong hop, dam bao logic dung nhu thiet ke.
+
 P0 integration tests:
 
 - Auth login/refresh/logout.

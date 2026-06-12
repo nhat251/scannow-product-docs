@@ -22,8 +22,8 @@ Vi con mot so thieu sot trong frontend va backend duoc tong hop qua bang trang t
 | Manager Portal (`/manager/*`) | `scan-now-customer` | Partial | Co mot phan UI (User management, branch access). Thieu live operations dashboard, reports. |
 | Staff Dashboard (`/staff/dashboard`) | `scan-now-customer` | Partial | Chi co placeholder, thieu API integration cho table open/close va waiter live view. |
 | Kitchen Dashboard (`/kitchen/dashboard`) | `scan-now-customer` | Partial | Chi co placeholder, thieu API integration cho kitchen grouped queue. |
-| Cashier Portal (`/cashier/*`) | `scan-now-customer` | Missing | Hoan toan thieu UI (orders list, checkout cash/PayOS, voucher). |
-| Customer QR Ordering | `scan-now-customer` | Missing | Hoan toan thieu cac route `/tables/[qrCodeToken]`, `/sessions/[sessionCode]/menu`, gio hang, checkout. |
+| Cashier Portal (`/cashier/*`) | `scan-now-customer` | Partial | Dashboard & Orders placeholders and auth routing added. |
+| Customer QR Ordering | `scan-now-customer` | Supported | Table QR redirection, menu page, cart storage, checkout/payment result pages implemented. |
 | Tenant-aware QR URL | Backend `ScanNow` | Partial | Truoc day static, can dynamic theo tenant domain. |
 | Tenant-aware Redirect | Backend `ScanNow` | Partial | Truoc day static, can redirect ve dung tenant domain cho PayOS. |
 

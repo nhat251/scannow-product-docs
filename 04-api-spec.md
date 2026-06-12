@@ -488,7 +488,27 @@ Response:
 }
 ```
 
-### 8.2 Join session
+### 8.2 Join session by QR token
+
+```http
+POST /api/public/tables/{qrCodeToken}/join
+```
+
+Response:
+
+```json
+{
+  "sessionId": "guid",
+  "tableId": "guid",
+  "branchId": "guid",
+  "sessionCode": "ABC123",
+  "tableNumber": "A1",
+  "branchName": "District 1",
+  "expiresAt": "datetime"
+}
+```
+
+### 8.3 Join session
 
 ```http
 POST /api/public/sessions/join

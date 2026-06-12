@@ -48,6 +48,19 @@ Nhung chua the goi la hoan tat end-to-end vi:
 - Quy trinh QR ordering, payment return/cancel dang duoc tich hop truc tiep tren tenant domain.
 - app.scannow.site chi la reserved future domain, khong phai noi chua staff portal trong MVP.
 
+## Development Guidelines & Quality Rules
+
+De dam bao chat luong code cho tat ca cac plan moi hoac tinh nang moi, cac quy tac duoi day la **BAT BUOC** va phai duoc ap dung lien tuc:
+
+1. **Frontend (FE) - Linting & Typing**:
+   - Bat buoc phai pass toan bo cac warning va error tu Linter va TypeScript compiler.
+   - Khi hoan thanh code/tinh nang tren FE, luon luon phai chay `npm run lint` (hoac `npm run lint:fix`).
+   - Chi chap nhan ket qua Linter la sach tuyet doi: **Khong co bat ky 1 warning hay error nao** (0 errors, 0 warnings).
+
+2. **Backend (BE) - Testing**:
+   - Voi moi doan code hoac tinh nang moi them vao backend, **bat buoc** phai viet testcase (Unit Test / Integration Test) tuong ung.
+   - Code chi duoc tinh la hoan thanh ("pass") khi toan bo cac testcase deu chay thanh cong va bao phu day du cac truong hop, dam bao logic chay dung nhu design.
+
 ## Bo tai lieu
 
 1. [Product PRD](01-product-prd.md)  

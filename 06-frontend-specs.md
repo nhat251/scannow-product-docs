@@ -20,6 +20,13 @@ api.scannow.site          -> backend API
 
 `app.scannow.site` khong duoc implement trong MVP. No duoc reserved cho tuong lai. Khong co route, redirect, hoac deployment nao duoc thiet lap cho app.scannow.site trong thoi diem hien tai.
 
+### 1.1 Quality Standards (Linting & TypeScript)
+
+**BAT BUOC**: Toan bo code Frontend (FE) phai tuan thu tuyet doi cac quy tac sau:
+- Chay linter (`pnpm run lint` hoac `pnpm run lint:fix`) va build (`pnpm run build` / tsc) truoc khi ket thuc bat ky plan nao.
+- Code chi duoc coi la hoan thanh ("pass") khi **khong co bat ky loi (error) hay canh bao (warning) nao**.
+- Cam su dung `any` sai muc dich, phai cast type hoac bat loi an toan (vi du: dung `unknown` ket hop `axios.isAxiosError(err)`).
+
 ## 2. Landing/Admin FE (`scan-now-nextjs`)
 
 ### 2.1 Stack
