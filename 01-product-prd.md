@@ -159,7 +159,7 @@ business.scannow.site         Future business portal cho khach hang lon quan ly 
 - Auth: register/login/google login/refresh/logout/email verification/change password.
 - Role: `ADMIN`, `OWNER`, `BRANCH_MANAGER`, `STAFF`, `KITCHEN`, `CASHIER`.
 - Tenant resolution: `X-Tenant-Slug` va host subdomain.
-- Tenant isolation: EF global query filter tren `Branch` theo `RestaurantId`.
+- Strict Tenant isolation: EF global query filter áp dụng trên **tất cả** các thực thể (entities) theo `RestaurantId` và chặn truy cập trái phép ngay từ khâu Login (`AuthService`).
 - Admin owners: list/create/update/ban/unban/available owners.
 - Admin restaurants: list/get by GUID/get by slug/create/update/ban/unban.
 - Admin branch supervision: branch by GUID/slug, menu/category/table/session read.

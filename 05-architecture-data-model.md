@@ -137,13 +137,17 @@ Request
     -> else host subdomain if not reserved
     -> Restaurant lookup by slug and IsActive
     -> TenantContext.RestaurantId/Slug
-  -> EF DbContext global Branch query filter
+  -> AuthService prevents login if user is not Owner or BranchStaff of the current Tenant
+  -> EF DbContext global query filters apply to ALL tenant entities (Branch, Category, MenuItem, Order, etc.)
 ```
 
-Current EF filter:
+Current EF filters:
 
 ```text
+Restaurant.Id == TenantContext.RestaurantId
 Branch.RestaurantId == TenantContext.RestaurantId
+BranchStaff.Branch.RestaurantId == TenantContext.RestaurantId
+(And so on for Category, MenuItem, Order, Payment, etc.)
 ```
 
 When tenant unresolved:
@@ -668,9 +672,9 @@ Strengths:
 
 - Backend has tenant context.
 - Tenant context is populated before authentication/authorization.
-- Branch filter is global in DbContext.
-- Branch is the root for most operational data.
-- Service methods often check branch ownership/branchId explicitly.
+- Authentication (`AuthService.LoginAsync`) checks if the user is an Owner or BranchStaff for the current Tenant, preventing cross-tenant login.
+- Global Query Filters in `ApplicationDbContext` apply to **all** tenant-related entities (Branch, Order, MenuItem, etc.), ensuring strict application-level isolation without needing to manually include `BranchId` filters everywhere.
+- Service methods often check branch ownership/branchId explicitly (belt and suspenders approach).
 
 Risks:
 

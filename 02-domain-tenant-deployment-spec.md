@@ -39,7 +39,7 @@ Backend co the tiep tuc chay o Render URL trong dev/staging, nhung production ne
 | Restaurant tenant as subdomain | Supported | Backend resolves tenant from header/host. Customer FE extracts subdomain and sends `X-Tenant-Slug`. |
 | Tenant = restaurant | Supported | Backend comment/code states tenant granularity = Restaurant. |
 | Restaurant has many branches | Supported | Data model has `Restaurant` -> many `Branch`; branch slug unique within restaurant. |
-| Backend tenant isolation | Partially supported | EF filter on `Branch` by `RestaurantId`; must test all child queries. |
+| Backend tenant isolation | Supported | Strict EF Global Query Filters on all tenant entities + Auth Login Validation. |
 | Admin routes by slug | Supported | Backend has `/api/admin/restaurants/by-slug/{slug}` and branch-by-slug endpoints. |
 | Wildcard CORS for tenants | Supported | `App:ProductionDomain=scannow.site`; production domain has been configured. |
 | Tenant public ordering UI | Supported / needs smoke test | `/tables/[qrCodeToken]`, menu, checkout, payment return/cancel routes exist in tenant FE. |
@@ -80,7 +80,8 @@ Current isolation point:
 
 ```text
 TenantContext.RestaurantId
-    -> EF Core global query filter on Branch.RestaurantId
+    -> EF Core global query filter on all tenant entities (Branch, Category, MenuItem, Order, etc.)
+    -> AuthService prevents login if user is not Owner/BranchStaff of the current Tenant
 ```
 
 Why this matches product model:

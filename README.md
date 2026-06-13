@@ -40,7 +40,7 @@ Kien truc nay la huong dung va backend branch `feat/multitenant-upgrade` da ho t
 - Tenant = `Restaurant`.
 - Mot tenant/restaurant co nhieu `Branch` (chi nhanh ben trong tenant), khong co branch subdomain.
 - Backend resolve tenant tu `X-Tenant-Slug` hoac subdomain host.
-- EF Core co global query filter tren `Branch` theo `RestaurantId`.
+- EF Core áp dụng Global Query Filter trên **tất cả** thực thể (Branch, Order, MenuItem...) theo `RestaurantId` để đảm bảo Data Isolation tuyệt đối. Auth Service cũng chặn login trái tenant.
 - Admin APIs da co route theo slug: `/api/admin/restaurants/by-slug/{slug}`.
 - CORS allow wildcard subdomain cua `scannow.site` khi `App:ProductionDomain=scannow.site`.
 - QR URL va PayOS redirect da sinh dong theo tenant domain thong qua `ITenantUrlBuilder`.
