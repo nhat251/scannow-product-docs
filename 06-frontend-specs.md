@@ -104,7 +104,7 @@ Backend alignment:
 - `getRestaurantBranchesBySlug` maps to `/api/admin/restaurants/by-slug/{slug}/branches`.
 - `getBranchDetailBySlug` maps to `/api/admin/restaurants/by-slug/{restaurantSlug}/branches/{branchSlug}`.
 
-This now aligns with backend branch `feat/multitenant-upgrade`.
+This aligns with the audited backend branch `test/deploy`.
 
 ### 2.6 Admin FE gaps
 
@@ -143,6 +143,13 @@ This now aligns with backend branch `feat/multitenant-upgrade`.
 /manager/users            manager user management
 /staff/dashboard          placeholder/protected
 /kitchen/dashboard        placeholder/protected
+/cashier/dashboard        cashier placeholder/protected
+/cashier/orders           cashier orders placeholder/protected
+/tables/[qrCodeToken]     public QR entry and auto-join
+/sessions/[sessionCode]/menu
+/sessions/[sessionCode]/checkout
+/payment/return
+/payment/cancel
 /robots.ts
 /sitemap.ts
 ```
@@ -161,7 +168,7 @@ Behavior:
 Reserved:
 
 ```text
-www, app, api, admin, staging, localhost
+www, app, api, admin, business, staging, localhost
 ```
 
 Works for:
@@ -289,7 +296,7 @@ Current FE gap:
 - Dashboards are not fully integrated with these APIs.
 - No SignalR branch order subscription.
 
-### 3.9 Cashier UI missing
+### 3.9 Cashier UI partial
 
 Backend supports:
 
@@ -298,11 +305,14 @@ Backend supports:
 - Cash/PayOS checkout.
 - Voucher application.
 
-Tenant FE missing:
+Tenant FE currently has:
 
 - `/cashier/dashboard`.
 - `/cashier/orders`.
 - Cashier role redirect.
+
+Tenant FE still misses:
+
 - Cashier order list/detail.
 - Cashier checkout form.
 - Payment cancel action.
@@ -318,35 +328,34 @@ Minimum cashier screens:
 7. PayOS QR/link display.
 8. Cancel pending payment.
 
-### 3.10 Public customer QR app missing
+### 3.10 Public customer QR app implemented basic
 
-Required routes:
+Implemented routes:
 
 ```text
 /tables/[qrCodeToken]
 /sessions/[sessionCode]/menu
-/orders/[orderId]
+/sessions/[sessionCode]/checkout
 /payment/return
 /payment/cancel
 ```
 
-Required components:
+Implemented components/features:
 
 - Table/session join state.
 - Menu category list.
 - Menu item cards.
-- Shared cart drawer.
+- Local cart state via `src/lib/customer-cart.ts`.
 - Customer info form.
 - Place order confirmation.
-- Order tracking timeline.
-- PayOS checkout modal/page.
+- PayOS checkout page.
 - Cash-at-counter state.
 - Error/expired session state.
 
-Required APIs:
+Implemented API calls:
 
 - `GET /api/public/tables/{qrCodeToken}`
-- `POST /api/public/sessions/join`
+- `POST /api/public/tables/{qrCodeToken}/join`
 - `GET /api/public/sessions/{sessionCode}/menu`
 - `POST /api/public/sessions/{sessionCode}/orders`
 - `POST /api/public/sessions/{sessionCode}/checkout`
@@ -354,10 +363,12 @@ Required APIs:
 - `POST /api/public/sessions/{sessionCode}/payment-cancel`
 - `GET /api/public/sessions/{sessionCode}/orders/{orderId}`
 
-Required SignalR:
+Current gaps:
 
-- `/hubs/cart`
-- `/hubs/orders`
+- No FE SignalR client integration for `/hubs/cart` or `/hubs/orders`.
+- No rich standalone order tracking timeline/page.
+- Needs deployed-domain smoke test with active table session, real menu data, tenant header, PayOS return/cancel.
+- Public cash checkout should be treated as "pay at cashier" until cashier confirms payment.
 
 ### 3.11 Tenant FE domain requirements
 
@@ -393,13 +404,11 @@ Quyet dinh chinh thuc: Khong trien khai `business.scannow.site` trong MVP.
 
 P0:
 
-- Update `SITE_CONFIG.baseUrl` in landing/admin.
 - Set production `NEXT_PUBLIC_API_URL`.
-- Add tenant public QR ordering pages.
-- Add payment return/cancel pages.
-- Add cashier role/types/routes/pages.
 - Align enum types with backend string enums.
 - Add SignalR clients for cart/order.
+- Complete cashier order list/detail/checkout/cancel UI.
+- Smoke test tenant public QR ordering and PayOS return/cancel on deployed domains.
 - Keep tenant comments/config aligned to `scannow.site`.
 
 P1:
@@ -427,6 +436,6 @@ P2:
 - Branch manager can manage users under branch.
 - Cashier user logs in and lands on cashier dashboard.
 - Customer QR URL loads table page under tenant domain.
-- Customer can place order and receive realtime status updates.
+- Customer can place order; realtime status updates require FE SignalR integration.
 - Payment return/cancel pages handle PayOS redirects.
 - No route uses legacy production metadata or links.

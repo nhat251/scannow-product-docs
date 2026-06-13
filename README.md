@@ -3,9 +3,10 @@
 Cap nhat: 2026-06-13
 Nguon doc:
 
-- Backend: `/home/nhat/fpt/ScanNow`, branch `feat/multitenant-upgrade`.
-- Landing/Admin FE: `/home/nhat/fpt/scan-now-nextjs`, branch `feat/multitenant`.
-- Tenant/Portal FE: `/home/nhat/fpt/scan-now-customer`, branch `feat/multitenant-upgrade`.
+- Backend: `/home/nhat/fpt/ScanNow`, audited branch `test/deploy`, commit `c41c3c4`.
+- Landing/Admin FE: `/home/nhat/fpt/scan-now-nextjs`, audited branch `main`, commit `7d59f7c`.
+- Tenant/Portal FE: `/home/nhat/fpt/scan-now-customer`, audited branch `main`, commit `1c44a03`.
+- Product docs: `/home/nhat/fpt/scannow-product-docs`, branch `main`, base commit `9a0d189`.
 
 ## Ket luan nhanh ve kien truc domain
 
@@ -35,7 +36,7 @@ Trong tenant domain se chua tat ca role/app cua nha hang:
 
 Neu wildcard DNS/deployment da lam `business.scannow.site` resolve duoc, domain nay phai duoc parked/future-only hoac `business` phai duoc them vao reserved subdomain list truoc khi route qua tenant stack.
 
-Kien truc nay la huong dung va backend branch `feat/multitenant-upgrade` da ho tro phan cot loi cua tenant:
+Kien truc nay la huong dung va backend branch `test/deploy` da ho tro phan cot loi cua tenant:
 
 - Tenant = `Restaurant`.
 - Mot tenant/restaurant co nhieu `Branch` (chi nhanh ben trong tenant), khong co branch subdomain.
@@ -43,7 +44,7 @@ Kien truc nay la huong dung va backend branch `feat/multitenant-upgrade` da ho t
 - EF Core áp dụng Global Query Filter trên **tất cả** thực thể (Branch, Order, MenuItem...) theo `RestaurantId` để đảm bảo Data Isolation tuyệt đối. Auth Service cũng chặn login trái tenant.
 - Admin APIs da co route theo slug: `/api/admin/restaurants/by-slug/{slug}`.
 - CORS allow wildcard subdomain cua `scannow.site` khi `App:ProductionDomain=scannow.site`.
-- QR URL va PayOS redirect da sinh dong theo tenant domain thong qua `ITenantUrlBuilder`.
+- QR URL va PayOS redirect da sinh dong theo tenant domain thong qua `ITenantUrlBuilder`; production phai set `App:TenantBaseDomain=scannow.site`.
 - Tenant FE da co public QR/order/payment routes co ban: `/tables/[qrCodeToken]`, `/sessions/[sessionCode]/menu`, `/sessions/[sessionCode]/checkout`, `/payment/return`, `/payment/cancel`.
 - Domain production da duoc setup; van can smoke test runtime sau moi lan deploy.
 
@@ -53,7 +54,15 @@ Trang thai con lai:
 - Landing/admin FE (scan-now-nextjs) chi giu landing va platform admin.
 - Quy trinh QR ordering, payment return/cancel dang duoc tich hop truc tiep tren tenant domain.
 - Cashier/staff/kitchen operational UI van con toi thieu/placeholder, chua phai full shift workflow.
-- Public CASH checkout hien van la known accounting risk neu chua qua cashier confirmation.
+- FE chua co SignalR client cho cart/order realtime; backend hub da co.
+- Public CASH checkout hien van la known accounting risk vi public flow mark order `Completed` nhung payment van `PENDING`, nen nen xem la "pay at cashier" cho den khi cashier confirm.
+
+## Audit verification 2026-06-13
+
+- Backend `dotnet build ScanNow.slnx --no-restore`: pass, 0 errors, 14 warnings.
+- Landing/Admin FE `pnpm lint` on audited `main` temp worktree: pass after temp `pnpm install --frozen-lockfile`.
+- Tenant/Portal FE `pnpm lint`: pass.
+- Backend warnings include NuGet vulnerability advisories for AutoMapper/MailKit/MimeKit and nullable/unread-parameter warnings; see roadmap/security docs.
 
 ## Development Guidelines & Quality Rules
 
@@ -93,6 +102,9 @@ De dam bao chat luong code cho tat ca cac plan moi hoac tinh nang moi, cac quy t
 
 8. [Gaps, Risks & Roadmap](08-gaps-roadmap.md)
    Cac gap bat buoc truoc production, rui ro thiet ke, roadmap theo phase.
+
+9. [ScanNow Presentation Source](09-scannow-presentation-source.md)
+   Tai lieu tong hop dai, dung lam source cho NotebookLM/slide thuyet trinh: cong nghe, kien truc, flow, in-scope, gaps, future roadmap.
 
 ## Cach doc nhanh
 

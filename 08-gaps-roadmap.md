@@ -37,6 +37,14 @@ Vi con mot so thieu sot trong frontend va backend duoc tong hop qua bang trang t
 3. **Cashier**: Da co dashboard/orders placeholder va role redirect, nhung chua co order list/detail/checkout UI day du.
 4. **Customer QR Ordering**: Da co route co ban cho QR/menu/cart/order/checkout/payment result; can smoke test domain + PayOS + data that.
 
+### Audit verification 2026-06-13
+
+| Check | Result | Notes |
+|---|---|---|
+| Backend `dotnet build ScanNow.slnx --no-restore` | Pass | 0 errors, 14 warnings. Warnings include AutoMapper high severity advisory, MailKit/MimeKit moderate advisories, nullable warnings, and one unread parameter. |
+| Landing/Admin FE `pnpm lint` on audited `main` | Pass | Temporary worktree needed `pnpm install --frozen-lockfile` first. |
+| Tenant/Portal FE `pnpm lint` on `main` | Pass | ESLint and `tsc --noEmit` pass. |
+
 ---
 
 ## 2. P0 Blockers Before Production
@@ -66,6 +74,7 @@ Current:
 
 - Backend uses `ITenantUrlBuilder` + `App:TenantBaseDomain=scannow.site`.
 - It generates `https://{restaurantSlug}.scannow.site/tables/{token}`.
+- Source `appsettings.json` currently includes `App:ProductionDomain` but not `App:TenantBaseDomain`; deploy env must set `App__TenantBaseDomain=scannow.site`.
 
 Impact:
 
@@ -90,7 +99,7 @@ Required:
 - Smoke test PayOS return/cancel on tenant domain.
 - Confirm deployment env does not override source config with old domain values.
 
-### P0.4 Cashier UI missing
+### P0.4 Cashier UI incomplete
 
 Current:
 
@@ -132,21 +141,22 @@ Required:
 - Verify CORS preflight with `X-Tenant-Slug`.
 - Verify `business.scannow.site` returns a parked/future page or is ignored as reserved subdomain.
 
-### P0.6 Secrets are present in repo config
+### P0.6 Secrets management must stay clean
 
 Current:
 
-- Sensitive-looking database/API/email values are present in local repo config files.
+- Tracked backend `appsettings.json` uses placeholders in the audited branch.
+- Secrets may still exist in local `.env`, deployment provider variables, team notes, or logs.
 
 Impact:
 
-- Treat as compromised.
-- Production security risk.
+- Any secret ever committed/shared/logged should be treated as compromised.
+- Production security risk if real values enter git history or runtime logs.
 
 Required:
 
-- Rotate exposed secrets.
-- Remove from tracked files.
+- Rotate exposed secrets if any real values were previously committed or shared.
+- Keep tracked files as placeholders only.
 - Use secret manager/env vars.
 - Commit only examples/placeholders.
 
@@ -154,8 +164,8 @@ Required:
 
 Current:
 
-- Tenant filter exists on `Branch`.
-- Direct queries on child entities may need explicit tests.
+- Global query filters exist for tenant-related entities in `ApplicationDbContext`.
+- Cross-tenant integration tests are still missing.
 
 Impact:
 
@@ -284,6 +294,19 @@ Required for scale:
 - Redis/distributed cache.
 - SignalR backplane or managed SignalR.
 
+### P1.8 Dependency and compiler warnings
+
+Current:
+
+- Backend build passes but emits NuGet vulnerability warnings for AutoMapper, MailKit, and MimeKit.
+- Build also emits nullable dereference warnings and an unread handler parameter warning.
+
+Required:
+
+- Upgrade or mitigate affected packages.
+- Review nullable warnings in repository/base entity code.
+- Keep CI configured to surface warnings before release.
+
 ## 4. P2 Roadmap
 
 ### P2.1 Business portal
@@ -342,10 +365,10 @@ Add:
 
 1. Configure DNS and deployment targets. **Done**
 2. Update FE base URLs and API URLs. **Done**
-3. Set backend `App:ProductionDomain=scannow.site`. **Done**
+3. Set backend `App:ProductionDomain=scannow.site` and `App:TenantBaseDomain=scannow.site`. **Pending deploy verification**
 4. Add dynamic tenant QR URL generation. **Done**
 5. Add dynamic tenant payment redirect. **Done**
-6. Rotate/remove secrets. **Pending/ops**
+6. Keep tracked config placeholder-only and rotate any historically exposed secrets. **Pending/ops verification**
 
 Deliverable:
 

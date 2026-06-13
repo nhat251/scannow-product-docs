@@ -23,6 +23,7 @@ Current frontend status:
 
 - Tenant FE has `CASHIER` auth redirect and placeholder `/cashier/dashboard`, `/cashier/orders` pages.
 - Tenant FE has customer QR/menu/checkout/payment result routes.
+- Customer QR flow is implemented at basic route/UI level, but SignalR cart/order client and production smoke tests remain pending.
 - Remaining gaps are full cashier order workflow, staff/kitchen dashboards, realtime tracking hardening, and owner role-picker alignment for cashier creation.
 
 ## 2. Landing Module
@@ -441,14 +442,15 @@ https://{restaurantSlug}.scannow.site/tables/{qrCodeToken}
 4. FE gets table info.
 5. Customer joins active session.
 6. FE loads session menu.
-7. Customer adds items to shared cart.
+7. Customer adds items to cart.
 8. Customer places order.
-9. Customer tracks order realtime.
+9. Customer tracks order status; realtime tracking is intended but FE SignalR client is not wired yet.
 10. Customer checks out via PayOS or cash-at-counter.
 
 ### 7.2 Backend APIs
 
 - `GET /api/public/tables/{qrCodeToken}`
+- `POST /api/public/tables/{qrCodeToken}/join`
 - `POST /api/public/sessions/join`
 - `GET /api/public/sessions/{sessionCode}/menu`
 - `POST /api/public/sessions/{sessionCode}/orders`
@@ -457,18 +459,22 @@ https://{restaurantSlug}.scannow.site/tables/{qrCodeToken}
 - `POST /api/public/sessions/{sessionCode}/payment-cancel`
 - `GET /api/public/sessions/{sessionCode}/orders/{orderId}`
 
-### 7.3 Current FE Gap
+### 7.3 Current FE Implementation and Gaps
 
-No public customer pages are present in tenant FE:
+Implemented in `scan-now-customer`:
 
-- No `/tables/[qrCodeToken]`.
-- No session menu page.
-- No cart UI.
-- No order tracking UI.
-- No payment return/cancel pages.
-- No SignalR client integration.
+- `/tables/[qrCodeToken]` auto-checks table, auto-joins active table session, then redirects to menu.
+- `/sessions/[sessionCode]/menu` loads categories/items, supports search/category filter, stores cart in local storage, and places order.
+- `/sessions/[sessionCode]/checkout` loads order detail and starts PayOS or cash-at-counter checkout.
+- `/payment/return` checks payment status.
+- `/payment/cancel` cancels pending public payment.
 
-Backend is ready enough to build these pages, but product is not end-to-end without them.
+Current gaps:
+
+- No FE SignalR client integration for `/hubs/cart` or `/hubs/orders`.
+- No rich standalone order tracking timeline/page after checkout.
+- Runtime smoke test with deployed tenant domain, active table session, real branch/menu data, and PayOS config is still required.
+- Public cash checkout should be presented as "pay at cashier" until cashier confirms payment.
 
 ## 8. Shared Cart Module
 
@@ -504,6 +510,7 @@ Limitations:
 - Cart service uses memory cache, not durable storage.
 - No explicit session authorization in hub methods.
 - Multiple app instances would not share memory cache without distributed cache/backplane.
+- Current tenant FE customer cart uses `src/lib/customer-cart.ts` local storage; SignalR shared cart hub is not wired on the frontend yet.
 
 ## 9. Order Lifecycle
 

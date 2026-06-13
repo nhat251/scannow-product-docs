@@ -915,7 +915,7 @@ BranchOrderUpdated(order)
 ## 15. API Gaps / Contract Risks
 
 - Public QR flow now supports QR-token auto join through `POST /api/public/tables/{qrCodeToken}/join`; runtime smoke test is still required with real tenant domain and active table session.
-- Public cash checkout remains an accounting/product risk if it can mark an order paid without cashier confirmation.
+- Public cash checkout remains an accounting/product risk because public flow marks order `Completed` while creating a `PENDING` cash payment; product copy should treat it as "pay at cashier" until cashier confirmation exists.
 - QR URL and PayOS return/cancel URLs are tenant-aware through `ITenantUrlBuilder`; old persisted/printed QR records may need regeneration or backfill.
 - Backend supports `CASHIER`; tenant FE has auth redirect and placeholder cashier pages, but full cashier order list/detail/checkout UI is still incomplete.
 - Backend serializes enums as strings; admin FE table status type currently numeric.

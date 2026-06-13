@@ -43,13 +43,13 @@ Backend co the tiep tuc chay o Render URL trong dev/staging, nhung production ne
 | Admin routes by slug | Supported | Backend has `/api/admin/restaurants/by-slug/{slug}` and branch-by-slug endpoints. |
 | Wildcard CORS for tenants | Supported | `App:ProductionDomain=scannow.site`; production domain has been configured. |
 | Tenant public ordering UI | Supported / needs smoke test | `/tables/[qrCodeToken]`, menu, checkout, payment return/cancel routes exist in tenant FE. |
-| QR URL for tenant domain | Supported | Built dynamically by `ITenantUrlBuilder` using `App:TenantBaseDomain`. |
+| QR URL for tenant domain | Supported when env is set | Built dynamically by `ITenantUrlBuilder` using `App:TenantBaseDomain`; if missing, it falls back to platform base URL. |
 | Payment return/cancel tenant pages | Supported | PayOS redirects to tenant domain instead of static base URL. |
 | `business.scannow.site` | Future / not MVP | Reserved for multi-restaurant business portal, not restaurant daily operations. |
 
 ## 3. Backend Tenant Resolution
 
-Backend branch `feat/multitenant-upgrade` includes `TenantResolutionMiddleware`.
+Backend audited branch `test/deploy` includes `TenantResolutionMiddleware`.
 
 Resolution priority:
 
@@ -59,7 +59,7 @@ Resolution priority:
 Reserved subdomains:
 
 ```text
-www, api, admin, app, localhost, staging
+www, api, admin, app, business, localhost, staging
 ```
 
 Behavior:
@@ -95,17 +95,16 @@ Expected access boundary:
 - Tenant request for `pho24` should only resolve branches where `Branch.RestaurantId = pho24.RestaurantId`.
 - If a route passes a branchId from another restaurant, branch lookup should return not found or forbidden.
 
-Risk:
+Current implementation detail:
 
-- The EF filter is only defined on `Branch`, not on every child table.
-- Many repository queries use root sets like `Orders`, `MenuItems`, `QrSessions`, `Payments`.
-- Some queries include `Branch`; some also check `BranchId` or compare branch manually.
-- This likely works for many flows, but should be explicitly tested with cross-tenant integration tests.
+- `ApplicationDbContext` defines global filters for `Restaurant`, `Branch`, `BranchStaff`, `Category`, `MenuItem`, `RestaurantTable`, `Order`, `QrSession`, `ItemRating`, `DiscountCode`, `BranchPaymentConfig`, `PaperVoucher`, `Notification`, `AuditLog`, `OrderItem`, `Payment`, and `MenuItemPriceHistory`.
+- Some filters traverse navigation paths such as `Order.Branch.RestaurantId` or `Payment.Order.Branch.RestaurantId`.
+- This is stronger than branch-only filtering, but it still needs regression tests because tenant safety is business-critical.
 
 Recommended hardening:
 
 - Add integration tests for every public and tenant route using tenant A header + tenant B IDs.
-- Consider global filters on direct branch-scoped entities (`Category`, `MenuItem`, `RestaurantTable`, `QrSession`, `Order`, `Payment`, `PaperVoucher`) or repository-level tenant assertions.
+- Keep repository/service-level branch assertions even with global filters.
 - Avoid relying only on `Include(Branch)` side effects.
 
 ## 5. Frontend Domain Routing
@@ -241,6 +240,8 @@ Tenant QR URLs are not built from `App__FrontendBaseUrl` alone. Backend uses `IT
 https://{restaurantSlug}.scannow.site/tables/{qrCodeToken}
 ```
 
+Important: source `ScanNow.Web/appsettings.json` currently contains `App:ProductionDomain=scannow.site` but not `App:TenantBaseDomain`. Production/staging env must explicitly set `App__TenantBaseDomain=scannow.site`; otherwise QR/payment tenant links fall back to `App__ClientUrl`/`App__FrontendBaseUrl`.
+
 ### 8.2 Landing/admin FE env
 
 ```text
@@ -311,10 +312,12 @@ Use APIs:
 - `POST /api/public/sessions/{sessionCode}/payment-cancel`
 - `GET /api/public/sessions/{sessionCode}/orders/{orderId}`
 
-Use hubs:
+Backend hubs available:
 
 - `/hubs/cart`
 - `/hubs/orders`
+
+Current FE status: no SignalR client integration was found in `scan-now-customer`; customer menu uses local cart storage and payment/status pages use HTTP APIs. Realtime cart/order tracking remains future hardening.
 
 ### 9.3 Dynamic QR URL generation
 
@@ -355,7 +358,7 @@ Tenant FE includes:
 - `CASHIER` role type.
 - `CASHIER -> /cashier/dashboard` redirect.
 - `/cashier/dashboard` and `/cashier/orders` placeholders.
-- User management UI option for cashier where allowed.
+- User-management types include `CASHIER`, but owner role picker still exposes only `BRANCH_MANAGER`, `STAFF`, `KITCHEN`; manager user form exposes `STAFF`, `KITCHEN`.
 
 ## 10. Request Flow Examples
 
@@ -388,10 +391,9 @@ Tenant FE extracts "pho24"
 Tenant FE -> GET /api/public/tables/{qrCodeToken} with X-Tenant-Slug: pho24
 Tenant FE -> POST /api/public/tables/{qrCodeToken}/join
 Tenant FE -> GET /api/public/sessions/{sessionCode}/menu
-Tenant FE -> SignalR /hubs/cart JoinSession
 Tenant FE -> POST /api/public/sessions/{sessionCode}/orders
-Tenant FE -> SignalR /hubs/orders JoinOrder
 Tenant FE -> POST /api/public/sessions/{sessionCode}/checkout
+Future hardening -> SignalR /hubs/cart and /hubs/orders for shared cart/order tracking
 ```
 
 ### 10.4 Cashier checkout

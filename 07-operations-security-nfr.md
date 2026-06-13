@@ -43,6 +43,7 @@ App__ClientUrl=https://scannow.site
 App__FrontendBaseUrl=https://scannow.site
 App__AllowedOrigins=https://scannow.site;https://www.scannow.site
 App__ProductionDomain=scannow.site
+App__TenantBaseDomain=scannow.site
 App__QrTablePath=/tables
 Cloudinary__CloudName=...
 Cloudinary__ApiKey=...
@@ -99,6 +100,12 @@ Current backend supports wildcard subdomain with:
 App:ProductionDomain=scannow.site
 ```
 
+Tenant QR/payment URL generation separately requires:
+
+```text
+App:TenantBaseDomain=scannow.site
+```
+
 Acceptance tests:
 
 - Browser request from `https://pho24.scannow.site` succeeds.
@@ -142,7 +149,7 @@ Threats:
 Controls already present:
 
 - Tenant context from slug.
-- Branch global query filter.
+- Global query filters on tenant-related entities.
 - Service-level branch ownership checks in many flows.
 - Role-based controller authorization.
 
@@ -151,16 +158,16 @@ Required hardening:
 - Integration tests for cross-tenant data access.
 - Hub authorization for `JoinBranch`.
 - Public QR/session lookups should fail when tenant header does not match table/session restaurant.
-- Consider adding tenant filter to all branch-scoped entities or repository helper enforcing tenant branch access.
+- Keep repository/service branch assertions even though global filters now cover branch-scoped entities.
 
 ## 7. Secrets Management
 
-Current repo state shows sensitive-looking values in config files. They must be treated as compromised.
+Current tracked backend `appsettings.json` uses placeholders for critical secrets. Production/local secret values must still be treated carefully because `.env`, deployment provider variables, and logs are common leakage points.
 
 Requirements:
 
 - Remove production secrets from tracked files.
-- Rotate database password and any exposed API keys.
+- Rotate database password and any exposed API keys if they were ever committed, shared, logged, or stored in local files.
 - Use environment variables or secret manager.
 - Keep `.env` files out of git.
 - Add `.env.example` with placeholders only.
@@ -333,6 +340,7 @@ P0:
 - Cashier placeholder route and redirect.
 - Public QR order flow on deployed tenant domain.
 - `business.scannow.site` does not resolve as tenant slug.
+- FE SignalR cart/order clients once implemented.
 
 ### 15.3 End-to-end tests
 
@@ -360,6 +368,7 @@ Critical E2E:
 - Public QR pages implemented and smoke-tested.
 - Payment pages implemented and smoke-tested.
 - Cashier placeholder exists; full cashier checkout UI is still pending unless finished separately.
+- FE SignalR cart/order client integration is either completed or explicitly scoped out for launch.
 - Tenant QR URL dynamic by restaurant slug.
 - Payment redirect dynamic by tenant slug.
 - `business.scannow.site` is parked/future-only or reserved in tenant slug parsing.

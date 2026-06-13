@@ -1,7 +1,7 @@
 # ScanNow Product Requirements Document
 
 Cap nhat: 2026-06-13
-Pham vi: BE `feat/multitenant-upgrade` + FE landing/admin + FE tenant/portal.
+Pham vi audit: BE `test/deploy` + FE landing/admin `main` + FE tenant/portal `main` + docs `main`.
 
 ## 1. Tom tat san pham
 
@@ -154,7 +154,7 @@ business.scannow.site         Future business portal cho khach hang lon quan ly 
 
 ## 6. Current Product Scope From Code
 
-### 6.1 Da co trong backend `feat/multitenant-upgrade`
+### 6.1 Da co trong backend `test/deploy`
 
 - Auth: register/login/google login/refresh/logout/email verification/change password.
 - Role: `ADMIN`, `OWNER`, `BRANCH_MANAGER`, `STAFF`, `KITCHEN`, `CASHIER`.
@@ -203,14 +203,17 @@ business.scannow.site         Future business portal cho khach hang lon quan ly 
 - Customer QR/order/payment routes: `/tables/[qrCodeToken]`, `/sessions/[sessionCode]/menu`, `/sessions/[sessionCode]/checkout`, `/payment/return`, `/payment/cancel`.
 - Cashier dashboard/orders placeholder va role redirect.
 - Placeholder/dashboard routes cho admin/owner/manager/staff/kitchen.
+- Public cart hien la client-side/local storage; backend shared cart hub co san nhung FE chua tich hop SignalR.
 
 ### 6.4 Chua hoan tat end-to-end
 
 - Kitchen/staff dashboards hien chua day du API integration.
 - Cashier UI moi o muc placeholder, chua co order list/checkout UI day du.
 - Public QR ordering da co route co ban, can smoke test runtime voi domain that va data PayOS/branch thuc.
-- Public CASH checkout van la known accounting risk neu chua qua cashier confirmation.
+- Public CASH checkout van la known accounting risk: backend public flow mark order `Completed` nhung payment `PENDING`; nen product-label la "pay at cashier" cho den khi cashier xac nhan.
 - Production domain da setup; van can verify env provider khong override sai gia tri source.
+- Backend QR/payment tenant URL can `App:TenantBaseDomain=scannow.site`; `App:ProductionDomain` chi phuc vu wildcard CORS.
+- Frontend SignalR cart/order realtime chua duoc wire, du backend hub da co.
 
 ## 7. MVP Definition
 

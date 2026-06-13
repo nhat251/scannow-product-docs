@@ -121,7 +121,9 @@ Current responsibilities implemented:
 - Login.
 - Owner restaurant/branches/users.
 - Manager users.
-- Basic dashboard routes/placeholders.
+- Public QR/menu/checkout/payment result pages.
+- Cashier dashboard/orders placeholders.
+- Basic owner/manager/staff/kitchen dashboard routes/placeholders.
 - Tenant slug extraction and `X-Tenant-Slug` header.
 
 ## 4. Tenant Architecture
@@ -158,7 +160,7 @@ When tenant unresolved:
 Reserved host labels:
 
 ```text
-www, api, admin, app, localhost, staging
+www, api, admin, app, business, localhost, staging
 ```
 
 Product implication:
@@ -678,8 +680,7 @@ Strengths:
 
 Risks:
 
-- Global filter only on `Branch`.
-- Direct root queries on `Orders`, `MenuItems`, `QrSessions`, `Payments`, `PaperVouchers` may not be automatically filtered unless relationship/include/query shape enforces it.
+- Global filters traverse navigation properties for some entities (`OrderItem`, `Payment`, `MenuItemPriceHistory`), so query correctness should still be covered by integration tests.
 - Public QR token lookup queries `RestaurantTable` by token and includes Branch. This should be tested because QR token is globally unique and not tenant-prefixed.
 - SignalR `JoinBranch(branchId)` does not authenticate/authorize branch membership in hub method.
 
@@ -734,7 +735,10 @@ Required:
 
 ```text
 App:ProductionDomain=scannow.site
+App:TenantBaseDomain=scannow.site
 ```
+
+`App:ProductionDomain` is used by CORS wildcard checks. `App:TenantBaseDomain` is used by `ITenantUrlBuilder` to generate tenant QR/payment URLs. If `TenantBaseDomain` is missing, generated URLs fall back to the platform base URL.
 
 ### 9.4 Cookies
 
@@ -754,7 +758,8 @@ If frontend and API are on sibling domains (`pho24.scannow.site` and `api.scanno
 - Tenant FE has public QR/menu/checkout/payment result pages; realtime order/cart tracking remains future hardening.
 - Tenant FE has cashier dashboard/orders placeholders and role redirect; full cashier order list/detail/checkout workflow is still incomplete.
 - Realtime FE client not integrated.
-- `appsettings.json` and `.env` contain sensitive-looking production secrets; these should be removed from repo and rotated.
+- `ScanNow.Web/appsettings.json` currently includes `App:ProductionDomain` but not `App:TenantBaseDomain`; deployment env must set it.
+- Keep production secrets out of tracked config; rotate any values that may have been exposed through local files, logs, or deployment providers.
 - `SITE_CONFIG.baseUrl` has been moved to `https://scannow.site`; tenant-specific metadata is still a future improvement.
 - FE auth/user-management role enums include `CASHIER`, but owner user-management role picker still needs cashier option alignment.
 - Backend supports enum string serialization; some FE types expect numeric table status.
