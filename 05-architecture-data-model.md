@@ -745,12 +745,12 @@ If frontend and API are on sibling domains (`pho24.scannow.site` and `api.scanno
 
 ## 10. Known Architecture Gaps
 
-- QR URL generation does not know restaurant slug.
-- PayOS redirect URL does not know tenant slug.
-- Tenant FE missing public customer app.
-- Tenant FE missing cashier app.
+- QR URL generation is tenant-aware through `ITenantUrlBuilder`; old QR records created before the change may need regeneration/backfill.
+- PayOS return/cancel redirect is tenant-aware through `ITenantUrlBuilder`; production smoke test with real PayOS config is still required.
+- Tenant FE has public QR/menu/checkout/payment result pages; realtime order/cart tracking remains future hardening.
+- Tenant FE has cashier dashboard/orders placeholders and role redirect; full cashier order list/detail/checkout workflow is still incomplete.
 - Realtime FE client not integrated.
 - `appsettings.json` and `.env` contain sensitive-looking production secrets; these should be removed from repo and rotated.
 - `SITE_CONFIG.baseUrl` has been moved to `https://scannow.site`; tenant-specific metadata is still a future improvement.
-- FE role enums and backend roles are not fully aligned.
+- FE auth/user-management role enums include `CASHIER`, but owner user-management role picker still needs cashier option alignment.
 - Backend supports enum string serialization; some FE types expect numeric table status.

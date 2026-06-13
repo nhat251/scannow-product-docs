@@ -1,7 +1,7 @@
 # ScanNow Product Requirements Document
 
-Cap nhat: 2026-06-12  
-Pham vi: BE `test/deploy` + FE landing/admin + FE tenant/portal.
+Cap nhat: 2026-06-13
+Pham vi: BE `feat/multitenant-upgrade` + FE landing/admin + FE tenant/portal.
 
 ## 1. Tom tat san pham
 
@@ -140,24 +140,21 @@ Kien truc chinh thuc cua san pham:
 scannow.site                  Landing page & Platform admin (/admin)
 api.scannow.site              Backend API
 <tenant>.scannow.site         Tenant site cua Restaurant (dung cho tat ca roles: owner, manager, staff, kitchen, cashier, customer)
+business.scannow.site         Future business portal cho khach hang lon quan ly nhieu restaurant
 ```
 
-`app.scannow.site` khong duoc su dung trong MVP (day la reserved domain duy nhat cho tuong lai neu can centralized portal). Tat ca tinh nang va role deu chay trong subdomain cua tung tenant (vi du `pho24.scannow.site`).
+`business.scannow.site` khong nam trong MVP hien tai. Day la future portal cho business account lon can quan ly nhieu restaurant, nhieu user quan ly, tenant switcher, business-level reports/billing. Tat ca tinh nang van hanh hang ngay va role cua tung nha hang deu chay trong subdomain cua restaurant do (vi du `pho24.scannow.site`).
 
 - Tenant = `Restaurant`.
 - Mot `Restaurant` co nhieu `Branch` (chi nhanh ben trong tenant), khong dung branch subdomain.
 - Platform admin chi dung `scannow.site/admin`.
 - Restaurant users dang nhap tai `<tenant>.scannow.site/login`.
 - Owner, manager, staff, kitchen, cashier va customer pages nam hoan toan trong tenant FE.
-
-- Dang nhap mot lan roi chon nha hang/tenant.
-- Mot user quan ly nhieu restaurant.
-- Can portal trung tam cho support/internal ops.
-- Can tach tenant public site va back-office portal.
+- Business portal chi duoc them khi can quan ly nhieu restaurant trong mot business account.
 
 ## 6. Current Product Scope From Code
 
-### 6.1 Da co trong backend `test/deploy`
+### 6.1 Da co trong backend `feat/multitenant-upgrade`
 
 - Auth: register/login/google login/refresh/logout/email verification/change password.
 - Role: `ADMIN`, `OWNER`, `BRANCH_MANAGER`, `STAFF`, `KITCHEN`, `CASHIER`.
@@ -203,17 +200,17 @@ api.scannow.site              Backend API
 - Protected route theo role.
 - Owner pages: restaurant, branches, users.
 - Manager users page.
+- Customer QR/order/payment routes: `/tables/[qrCodeToken]`, `/sessions/[sessionCode]/menu`, `/sessions/[sessionCode]/checkout`, `/payment/return`, `/payment/cancel`.
+- Cashier dashboard/orders placeholder va role redirect.
 - Placeholder/dashboard routes cho admin/owner/manager/staff/kitchen.
 
 ### 6.4 Chua hoan tat end-to-end
 
-- Public customer QR ordering UI chua co route trong FE tenant.
-- Payment return/cancel pages chua co.
-- Cashier UI chua co.
 - Kitchen/staff dashboards hien chua day du API integration.
-- QR URL generation chua dynamic theo restaurant slug.
-- PayOS redirect URL chua dynamic theo tenant.
-- Production domain config chua hoan tat trong appsettings/env.
+- Cashier UI moi o muc placeholder, chua co order list/checkout UI day du.
+- Public QR ordering da co route co ban, can smoke test runtime voi domain that va data PayOS/branch thuc.
+- Public CASH checkout van la known accounting risk neu chua qua cashier confirmation.
+- Production domain da setup; van can verify env provider khong override sai gia tri source.
 
 ## 7. MVP Definition
 
@@ -309,31 +306,37 @@ Quyet dinh nay phu hop voi code:
 - `Branch` chua VAT/service charge/payment config/table/menu/order.
 - Tenant query filter ap theo `Branch.RestaurantId`.
 
-### 11.2app.scannow.site khong su dung trong MVP (Reserved Only)
+### 11.2 business.scannow.site la future business portal
 
 Quyet dinh chinh thuc:
 
 - Platform admin chay tren `scannow.site/admin`.
 - Moi nha hang co tenant domain rieng `<tenant>.scannow.site`.
 - Owner/manager/staff/kitchen/cashier va ca public customer deu truy cap truc tiep trong tenant domain cua nha hang.
-- `app.scannow.site` khong duoc implement trong MVP. Day la reserved domain cho tuong lai neu co nhu cau:
-  - Central login hoac tenant selector.
-  - Mot user quan ly nhieu restaurant.
-  - Centralized support portal.
+- `business.scannow.site` khong implement trong MVP. Day la future portal cho:
+  - Business account quan ly nhieu restaurant.
+  - Nhieu business users/manager cung quan ly mot nhom restaurant.
+  - Tenant switcher giua cac restaurant.
+  - Business-level reports va billing/subscription.
+- `business.scannow.site` khong chua customer QR ordering va khong thay the tenant domain cho staff/kitchen/cashier shift workflow.
 
-### 11.3 QR URL phai la tenant-aware
+### 11.3 QR URL da tenant-aware
 
-Backend hien tao QR URL tu `App:FrontendBaseUrl` + `App:QrTablePath`. De dung voi tenant domain, QR URL can:
+Backend dung `ITenantUrlBuilder` de sinh QR URL theo restaurant slug:
 
 ```text
 https://{restaurantSlug}.scannow.site/tables/{qrCodeToken}
 ```
 
-Neu khong, khach co the vao domain sai va `X-Tenant-Slug` khong khop tenant.
+QR la static table token. Khi khach scan, backend auto-join active session hien tai cua ban qua `POST /api/public/tables/{qrCodeToken}/join`. Public QR khong duoc tu tao session moi.
 
-### 11.4 Payment redirect phai tenant-aware
+### 11.4 Payment redirect da tenant-aware
 
-CheckoutService va CashierService hien build redirect URL tu `App:ClientUrl`/`App:FrontendBaseUrl`. Public customer payment phai quay ve tenant domain, khong phai mot base URL chung.
+CheckoutService va CashierService dung `ITenantUrlBuilder` de dua PayOS return/cancel ve dung tenant domain:
+
+```text
+https://{restaurantSlug}.scannow.site/payment/{return|cancel}?...
+```
 
 ## 12. Acceptance Criteria Tong
 
@@ -347,6 +350,6 @@ CheckoutService va CashierService hien build redirect URL tu `App:ClientUrl`/`Ap
 - Owner/manager/staff/kitchen/cashier role flow hoat dong tren tenant domain.
 - QR cua branch trong `pho24` tro ve `https://pho24.scannow.site/tables/{token}`.
 - Khach quet QR, join session, xem menu dung branch, place order, theo doi status.
-- Cashier checkout cash sinh payment `SUCCESS`; PayOS sinh pending payment va hoan tat khi gateway paid.
+- PayOS sinh pending payment va hoan tat khi gateway paid.
+- Cashier checkout cash sinh payment `SUCCESS`; public CASH checkout hien la known risk neu chua co cashier confirmation.
 - Payment return/cancel route ton tai tren tenant FE.
-

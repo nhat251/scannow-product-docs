@@ -8,6 +8,8 @@ Mong muon cua san pham:
 https://scannow.site
 https://scannow.site/admin
 https://<tenant>.scannow.site
+https://api.scannow.site
+https://business.scannow.site   # future, not MVP
 ```
 
 Trong do:
@@ -17,6 +19,8 @@ Trong do:
 - `<tenant>.scannow.site` la tenant site cua mot restaurant.
 - `tenant` la `Restaurant.Slug`, vi du `pho24.scannow.site`.
 - Branch khong nam o subdomain. Branch duoc xac dinh qua table/session/branch route.
+- `api.scannow.site` la backend API production domain.
+- `business.scannow.site` la future portal cho business account lon quan ly nhieu restaurant.
 
 Recommended API domain:
 
@@ -32,20 +36,20 @@ Backend co the tiep tuc chay o Render URL trong dev/staging, nhung production ne
 |---|---|---|
 | Landing at `scannow.site` | Mostly supported | `scan-now-nextjs` root redirects to locale page and renders `SalesLanding`. |
 | Admin at `scannow.site/admin` | Supported | `scan-now-nextjs` has `/admin` route, proxy excludes `/admin` from i18n middleware. |
-| Restaurant tenant as subdomain | Partially supported | Backend resolves tenant from header/host. Customer FE extracts subdomain and sends `X-Tenant-Slug`. |
+| Restaurant tenant as subdomain | Supported | Backend resolves tenant from header/host. Customer FE extracts subdomain and sends `X-Tenant-Slug`. |
 | Tenant = restaurant | Supported | Backend comment/code states tenant granularity = Restaurant. |
 | Restaurant has many branches | Supported | Data model has `Restaurant` -> many `Branch`; branch slug unique within restaurant. |
 | Backend tenant isolation | Partially supported | EF filter on `Branch` by `RestaurantId`; must test all child queries. |
 | Admin routes by slug | Supported | Backend has `/api/admin/restaurants/by-slug/{slug}` and branch-by-slug endpoints. |
-| Wildcard CORS for tenants | Supported by code, needs config | `App:ProductionDomain` must be set to `scannow.site`. |
-| Tenant public ordering UI | Supported / Partial | /tables/[qrCodeToken] and menu routing. |
-| QR URL for tenant domain | Supported | Dynamically built based on TenantBaseDomain. |
-| Payment return/cancel tenant pages | Supported | Redirects to tenant domain instead of static baseUrl. |
-| `app.scannow.site` | Reserved Only | Not used in MVP. Reserved for centralized portal only. |
+| Wildcard CORS for tenants | Supported | `App:ProductionDomain=scannow.site`; production domain has been configured. |
+| Tenant public ordering UI | Supported / needs smoke test | `/tables/[qrCodeToken]`, menu, checkout, payment return/cancel routes exist in tenant FE. |
+| QR URL for tenant domain | Supported | Built dynamically by `ITenantUrlBuilder` using `App:TenantBaseDomain`. |
+| Payment return/cancel tenant pages | Supported | PayOS redirects to tenant domain instead of static base URL. |
+| `business.scannow.site` | Future / not MVP | Reserved for multi-restaurant business portal, not restaurant daily operations. |
 
 ## 3. Backend Tenant Resolution
 
-Backend `test/deploy` includes `TenantResolutionMiddleware`.
+Backend branch `feat/multitenant-upgrade` includes `TenantResolutionMiddleware`.
 
 Resolution priority:
 
@@ -162,24 +166,27 @@ Current tenant slug extraction:
 - Local dev can use `NEXT_PUBLIC_DEV_TENANT_SLUG`.
 - Axios sends `X-Tenant-Slug` to backend when slug exists.
 
-Current caveats:
+Current notes:
 
 - Tenant comments/config use `scannow.site`.
-- Public QR ordering pages are missing.
-- Cashier route is missing even though backend has `CASHIER`.
-- `UserRole` FE types do not fully include backend role `CASHIER`.
+- Public QR ordering pages exist; full production readiness still requires smoke test with real domain/data.
+- Cashier routes exist as placeholders and auth routing supports `CASHIER`; full cashier operations UI is still future work.
+- `UserRole` FE types include backend role `CASHIER`.
 - Tenant FE `SITE_CONFIG.baseUrl` is configured as `https://scannow.site`; tenant-specific metadata can be made host-aware later.
 
-## 6. Is `app.scannow.site` Needed?
+## 6. What Is `business.scannow.site`?
 
-Short answer: **No. It is Reserved Only and NOT used in MVP**.
+Short answer: **future business portal, not MVP**.
 
 All restaurant roles (owner, manager, staff, kitchen, cashier) and customers will operate entirely under `<tenant>.scannow.site` using the `scan-now-customer` app.
 
-`app.scannow.site` is only reserved for future use cases such as:
-- A centralized login portal (central login) that handles redirection or tenant switching.
-- A centralized dashboard for users who belong to multiple restaurants.
-- Centralized support portal.
+`business.scannow.site` is reserved for future use cases such as:
+- A business account that owns/manages multiple restaurant tenants.
+- A tenant switcher for business users who belong to multiple restaurants.
+- Business-level reports, billing/subscription, and organization-level user management.
+- Optional support/admin workflows for business customers.
+
+It must not contain customer QR ordering or replace `<tenant>.scannow.site` for daily restaurant operations.
 
 ## 7. DNS and Hosting Requirements
 
@@ -196,6 +203,7 @@ Hosting requirements:
 
 - Landing/admin deployment must serve `/admin` and locale routes.
 - Tenant deployment must accept wildcard hostnames.
+- `business.scannow.site` must not be routed to the tenant app until the business portal exists. If wildcard DNS already resolves it, either point it to a parked/future portal response or add `business` to frontend/backend reserved subdomain lists before routing it through the tenant stack.
 - Backend must accept CORS from:
   - `https://scannow.site`
   - `https://www.scannow.site`
@@ -216,6 +224,7 @@ App__ClientUrl=https://scannow.site
 App__FrontendBaseUrl=https://scannow.site
 App__AllowedOrigins=https://scannow.site;https://www.scannow.site
 App__ProductionDomain=scannow.site
+App__TenantBaseDomain=scannow.site
 App__QrTablePath=/tables
 Jwt__Issuer=...
 Jwt__Audience=...
@@ -225,7 +234,7 @@ PayOS__ReturnUrl=...
 PayOS__CancelUrl=...
 ```
 
-But `App__FrontendBaseUrl` alone is not enough for tenant QR URLs. Code change needed for dynamic QR URL:
+Tenant QR URLs are not built from `App__FrontendBaseUrl` alone. Backend uses `ITenantUrlBuilder` and `App__TenantBaseDomain` to generate:
 
 ```text
 https://{restaurantSlug}.scannow.site/tables/{qrCodeToken}
@@ -261,11 +270,11 @@ SITE_CONFIG.baseUrl=https://scannow.site or tenant-aware metadata strategy
 
 For tenant FE, static `SITE_CONFIG.baseUrl` is less useful because host changes by tenant. Metadata should derive from request host if SEO for tenant pages matters.
 
-## 9. Required Code Changes For Desired Architecture
+## 9. Implemented Tenant Customer Flow
 
 ### 9.1 Tenant FE public route
 
-Add:
+Implemented:
 
 ```text
 scan-now-customer/src/app/tables/[qrCodeToken]/page.tsx
@@ -275,24 +284,19 @@ Flow:
 
 1. Read `qrCodeToken`.
 2. `GET /api/public/tables/{qrCodeToken}`.
-3. If table valid and occupied/open, ask/join session.
-4. `POST /api/public/sessions/join` with `sessionCode`.
-5. Redirect/render menu page.
+3. `POST /api/public/tables/{qrCodeToken}/join`.
+4. Backend finds active session for the table.
+5. Redirect to `/sessions/{sessionCode}/menu`.
 
-Depending on UX, QR token page can:
-
-- Ask staff/customer to enter active session code.
-- Or backend can add endpoint to join directly by QR token if session active.
-
-Current backend join API requires `sessionCode`, not `qrCodeToken`.
+QR remains static and only identifies the table. Session remains dynamic and must be opened by staff/cashier before customer can join. Public QR never creates a session.
 
 ### 9.2 Tenant FE menu/order route
 
-Add pages/components:
+Implemented pages/components:
 
 ```text
 /sessions/{sessionCode}/menu
-/orders/{orderId}
+/sessions/{sessionCode}/checkout
 /payment/return
 /payment/cancel
 ```
@@ -303,6 +307,7 @@ Use APIs:
 - `POST /api/public/sessions/{sessionCode}/orders`
 - `POST /api/public/sessions/{sessionCode}/checkout`
 - `GET /api/public/sessions/{sessionCode}/payment-status`
+- `POST /api/public/sessions/{sessionCode}/payment-cancel`
 - `GET /api/public/sessions/{sessionCode}/orders/{orderId}`
 
 Use hubs:
@@ -312,42 +317,29 @@ Use hubs:
 
 ### 9.3 Dynamic QR URL generation
 
-Current backend `BuildQrCodeUrl(qrCodeToken)` only knows token and static config.
+Implemented in backend:
 
-Recommended change:
-
-- Pass branch/restaurant slug into URL builder.
-- Generate:
+- `ITenantUrlBuilder.BuildTenantTableUrl(slug, qrCodeToken)`.
+- `TableQrService` passes branch restaurant slug when creating/regenerating QR.
+- Generated URL:
 
 ```text
 https://{restaurantSlug}.scannow.site/tables/{qrCodeToken}
 ```
 
-Potential implementation:
-
-- Change `BuildQrCodeUrl(string qrCodeToken)` to `BuildQrCodeUrl(Branch branch, string qrCodeToken)`.
-- Add config `App:TenantBaseDomain=scannow.site`.
-- URL = `https://{branch.Restaurant.Slug}.{TenantBaseDomain}/tables/{qrCodeToken}`.
-
 ### 9.4 Dynamic payment redirect
 
-Current checkout redirects:
+Implemented in backend:
 
-```text
-{App:ClientUrl}/payment/{return|cancel}?sessionCode=...&orderId=...
-```
-
-Recommended:
+- `CheckoutService` builds customer PayOS redirect with restaurant slug.
+- `CashierService` builds cashier PayOS redirect with restaurant slug.
+- Redirect shape:
 
 ```text
 https://{restaurantSlug}.scannow.site/payment/{return|cancel}?sessionCode=...&orderId=...
 ```
 
-Need restaurant slug from order branch:
-
-- Include `Branch.Restaurant` when loading order/session.
-- Or use `TenantContext.Slug` if request came from tenant.
-- Fallback to static `App:ClientUrl` for admin/cashier/internal flows.
+Fallback remains platform base URL when slug/domain config is missing.
 
 ### 9.5 Role and route sync
 
@@ -357,11 +349,11 @@ Backend role list includes:
 ADMIN, OWNER, BRANCH_MANAGER, STAFF, KITCHEN, CASHIER
 ```
 
-Tenant FE must add:
+Tenant FE includes:
 
 - `CASHIER` role type.
-- `/cashier/...` routes.
-- Redirect mapping for `CASHIER`.
+- `CASHIER -> /cashier/dashboard` redirect.
+- `/cashier/dashboard` and `/cashier/orders` placeholders.
 - User management UI option for cashier where allowed.
 
 ## 10. Request Flow Examples
@@ -393,7 +385,7 @@ Customer scans QR
 QR URL -> https://pho24.scannow.site/tables/{qrCodeToken}
 Tenant FE extracts "pho24"
 Tenant FE -> GET /api/public/tables/{qrCodeToken} with X-Tenant-Slug: pho24
-Tenant FE -> POST /api/public/sessions/join
+Tenant FE -> POST /api/public/tables/{qrCodeToken}/join
 Tenant FE -> GET /api/public/sessions/{sessionCode}/menu
 Tenant FE -> SignalR /hubs/cart JoinSession
 Tenant FE -> POST /api/public/sessions/{sessionCode}/orders
@@ -424,4 +416,4 @@ Cashier FE -> POST /api/cashier/branches/{branchId}/orders/{orderId}/checkout
 - QR generated for branch under `pho24` points to `https://pho24.scannow.site/tables/...`.
 - Payment return/cancel returns to `https://pho24.scannow.site/payment/...`.
 - `api.scannow.site` is the backend API base domain.
-- `app.scannow.site` is reserved for future use and not used in MVP.
+- `business.scannow.site` is reserved for future business portal and not used in MVP.

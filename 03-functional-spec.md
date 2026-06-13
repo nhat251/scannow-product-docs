@@ -19,10 +19,11 @@ Backend roles:
 ADMIN, OWNER, BRANCH_MANAGER, STAFF, KITCHEN, CASHIER
 ```
 
-Frontend gap:
+Current frontend status:
 
-- Tenant FE currently lacks complete `CASHIER` route/type support.
-- Customer QR routes are absent.
+- Tenant FE has `CASHIER` auth redirect and placeholder `/cashier/dashboard`, `/cashier/orders` pages.
+- Tenant FE has customer QR/menu/checkout/payment result routes.
+- Remaining gaps are full cashier order workflow, staff/kitchen dashboards, realtime tracking hardening, and owner role-picker alignment for cashier creation.
 
 ## 2. Landing Module
 
@@ -157,7 +158,7 @@ Current FE supports admin read views/tabs. It does not expose create/update for 
 
 ### 4.1 Tenant Entry
 
-Moi user thuoc nha hang (Owner, Branch Manager, Staff/Waiter, Kitchen, Cashier) deu truy cap thong qua tenant domain cua nha hang ho va khong dung `app.scannow.site`:
+Moi user thuoc nha hang (Owner, Branch Manager, Staff/Waiter, Kitchen, Cashier) deu truy cap thong qua tenant domain cua nha hang ho va khong dung `business.scannow.site`:
 
 ```text
 https://{restaurantSlug}.scannow.site/login
@@ -292,7 +293,7 @@ Validation:
 
 FE gap:
 
-- Current tenant FE types/options do not fully include `CASHIER`.
+- Tenant FE user-management types include `CASHIER`, but owner role picker currently exposes only `BRANCH_MANAGER`, `STAFF`, `KITCHEN`.
 - Manager UI appears to allow only `KITCHEN` and `STAFF`.
 
 ## 5. Menu Management Module
@@ -791,4 +792,3 @@ FE gap:
 - PayOS cannot be used if branch config incomplete.
 - Voucher cannot exceed quantity, date range, min order, or max discount rules.
 - Realtime order updates reach both customer order group and branch group.
-

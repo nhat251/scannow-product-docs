@@ -16,9 +16,10 @@ scannow.site              -> scan-now-nextjs
 scannow.site/admin        -> scan-now-nextjs
 *.scannow.site            -> scan-now-customer
 api.scannow.site          -> backend API
+business.scannow.site     -> future/parked business portal, not tenant app
 ```
 
-`app.scannow.site` khong duoc implement trong MVP. No duoc reserved cho tuong lai. Khong co route, redirect, hoac deployment nao duoc thiet lap cho app.scannow.site trong thoi diem hien tai.
+`business.scannow.site` khong duoc implement trong MVP. No duoc reserved cho tuong lai. Neu wildcard DNS/deployment da lam domain nay resolve duoc, phai parked hoac reserve `business` trong tenant slug parsing de khong bi xem nhu restaurant slug.
 
 ### 1.1 Quality Standards (Linting & TypeScript)
 
@@ -103,7 +104,7 @@ Backend alignment:
 - `getRestaurantBranchesBySlug` maps to `/api/admin/restaurants/by-slug/{slug}/branches`.
 - `getBranchDetailBySlug` maps to `/api/admin/restaurants/by-slug/{restaurantSlug}/branches/{branchSlug}`.
 
-This now aligns with backend `test/deploy`.
+This now aligns with backend branch `feat/multitenant-upgrade`.
 
 ### 2.6 Admin FE gaps
 
@@ -200,13 +201,14 @@ MANAGER        -> /manager/users
 BRANCH_MANAGER -> /manager/users
 STAFF          -> /staff/dashboard
 KITCHEN        -> /kitchen/dashboard
+CASHIER        -> /cashier/dashboard
 ```
 
 Gap:
 
-- Missing `CASHIER -> /cashier/...`.
 - Type includes `MANAGER`, but backend role is `BRANCH_MANAGER`.
-- Some types allow string fallback, but UI options are incomplete.
+- Auth and user-management types include `CASHIER`, but owner role picker still needs cashier option alignment.
+- Cashier pages currently exist as placeholders, not full order list/detail/checkout UI.
 
 ### 3.6 Owner portal implemented
 
@@ -236,7 +238,7 @@ Owner UI supports:
 
 Gaps:
 
-- Owner user role options do not fully include `CASHIER`.
+- Owner user role options do not expose `CASHIER` yet, although shared user-management types include it.
 - Owner does not manage menu/tables/payment config/vouchers from current FE.
 - Owner dashboard/reports not wired.
 
@@ -382,9 +384,10 @@ Potential metadata issue:
 
 ## 4. App Domain Decision
 
-Quyet dinh chinh thuc: Khong trien khai `app.scannow.site` trong MVP.
+Quyet dinh chinh thuc: Khong trien khai `business.scannow.site` trong MVP.
 - Tat ca users (owner, manager, staff, kitchen, cashier, customer) deu truy cap tren tenant subdomain (`*.scannow.site`) thong qua repository `scan-now-customer`.
 - Platform admin doc lap tai `scannow.site/admin` (qua `scan-now-nextjs`).
+- `business.scannow.site` chi la future/parked domain cho business portal; khong duoc load tenant operations UI.
 
 ## 5. Required FE Work Before Production
 

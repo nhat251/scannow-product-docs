@@ -2,13 +2,16 @@
 
 ## 1. Executive Summary
 
-Backend `test/deploy` da tien gan toi kien truc tenant mong muon:
+Code hien tai da tien toi kien truc tenant mong muon:
 
 - Tenant = restaurant.
 - Restaurant slug co the dung lam subdomain.
 - Backend resolve tenant tu header/subdomain.
 - Admin slug APIs da co.
 - CORS wildcard subdomain da co co che cau hinh.
+- QR URL va PayOS redirect da tenant-aware thong qua `ITenantUrlBuilder`.
+- Tenant FE da co public QR/order/payment routes co ban.
+- Domain production da duoc setup; can smoke test runtime voi data/domain that.
 
 Vi con mot so thieu sot trong frontend va backend duoc tong hop qua bang trang thai duoi day.
 
@@ -24,85 +27,76 @@ Vi con mot so thieu sot trong frontend va backend duoc tong hop qua bang trang t
 | Kitchen Dashboard (`/kitchen/dashboard`) | `scan-now-customer` | Partial | Chi co placeholder, thieu API integration cho kitchen grouped queue. |
 | Cashier Portal (`/cashier/*`) | `scan-now-customer` | Partial | Dashboard & Orders placeholders and auth routing added. |
 | Customer QR Ordering | `scan-now-customer` | Supported | Table QR redirection, menu page, cart storage, checkout/payment result pages implemented. |
-| Tenant-aware QR URL | Backend `ScanNow` | Partial | Truoc day static, can dynamic theo tenant domain. |
-| Tenant-aware Redirect | Backend `ScanNow` | Partial | Truoc day static, can redirect ve dung tenant domain cho PayOS. |
+| Tenant-aware QR URL | Backend `ScanNow` | Supported | `ITenantUrlBuilder` sinh `https://{restaurantSlug}.scannow.site/tables/{qrCodeToken}`. |
+| Tenant-aware Redirect | Backend `ScanNow` | Supported | PayOS return/cancel sinh ve dung tenant domain. |
 
 ### Gaps Hien Tai Theo Role & Module
 
 1. **Owner/Manager**: Da co mot phan UI ve mat thong tin co ban va user management. Thieu toan bo phan menu/table management va reports.
 2. **Staff/Kitchen**: Dang o dang placeholder tinh, chua ket noi thuc te voi backend va SignalR.
-3. **Cashier**: Hoan toan chua co UI. Can route `/cashier/dashboard` va `/cashier/orders` ho tro cash/PayOS.
-4. **Customer QR Ordering**: Thieu hoan toan cac route link den luong quet ma dat mon va thanh toan.
+3. **Cashier**: Da co dashboard/orders placeholder va role redirect, nhung chua co order list/detail/checkout UI day du.
+4. **Customer QR Ordering**: Da co route co ban cho QR/menu/cart/order/checkout/payment result; can smoke test domain + PayOS + data that.
 
 ---
 
 ## 2. P0 Blockers Before Production
 
-### P0.1 Public QR ordering UI missing
+### P0.1 Public QR ordering runtime smoke test pending
 
 Current:
 
 - Backend public APIs exist.
-- Tenant FE has no `/tables/[qrCodeToken]`, menu, cart, order tracking, payment pages.
+- Tenant FE has `/tables/[qrCodeToken]`, `/sessions/[sessionCode]/menu`, `/sessions/[sessionCode]/checkout`, `/payment/return`, `/payment/cancel`.
+- Backend has `POST /api/public/tables/{qrCodeToken}/join`.
 
 Impact:
 
-- Customer cannot use QR ordering end-to-end.
-- Tenant domain would only serve staff/owner portal, not customer ordering.
+- Code path exists, but must still be verified with deployed domain, real tenant data, active table session, and PayOS config.
 
 Required:
 
-- Add table QR page.
-- Add menu page.
-- Add shared cart UI.
-- Add place order flow.
-- Add order tracking page.
-- Add payment return/cancel pages.
-- Add SignalR cart/order client.
+- Smoke test `https://{tenant}.scannow.site/tables/{qrCodeToken}` end-to-end.
+- Verify `X-Tenant-Slug` arrives at `api.scannow.site`.
+- Verify PayOS return/cancel returns to tenant domain.
+- Verify invalid/not-open/expired sessions show correct customer state.
 
-### P0.2 QR URL is not tenant-aware
+### P0.2 QR URL tenant-aware implemented
 
 Current:
 
-- Backend builds QR URL from static `App:FrontendBaseUrl` + `App:QrTablePath`.
-- It does not generate `https://{restaurantSlug}.scannow.site/tables/{token}`.
+- Backend uses `ITenantUrlBuilder` + `App:TenantBaseDomain=scannow.site`.
+- It generates `https://{restaurantSlug}.scannow.site/tables/{token}`.
 
 Impact:
 
-- Printed QR can point to wrong/non-tenant domain.
-- Tenant header may be missing or wrong.
-- Customer experience breaks after deploy.
+- Existing printed QR codes created before this change may still point to old/static URLs.
 
 Required:
 
-- Add config `App:TenantBaseDomain=scannow.site`.
-- Generate QR URL using branch restaurant slug.
-- Backfill/regenerate existing QR URLs.
+- Regenerate/backfill existing QR URLs before printing/using old tables.
 
-### P0.3 Payment redirect is not tenant-aware
+### P0.3 Payment redirect tenant-aware implemented
 
 Current:
 
-- CheckoutService and CashierService build redirect URL from static `App:ClientUrl`/`App:FrontendBaseUrl`.
+- CheckoutService and CashierService build PayOS return/cancel URL from restaurant slug via `ITenantUrlBuilder`.
 
 Impact:
 
-- PayOS may return customer to `scannow.site` or localhost rather than `pho24.scannow.site`.
-- Payment result page cannot recover tenant/session context reliably.
+- Must still verify branch PayOS credentials and gateway callback/status behavior in deployment.
 
 Required:
 
-- Build public payment redirect from restaurant slug.
-- Add tenant payment pages.
-- Keep cashier/admin fallback for internal flows if needed.
+- Smoke test PayOS return/cancel on tenant domain.
+- Confirm deployment env does not override source config with old domain values.
 
 ### P0.4 Cashier UI missing
 
 Current:
 
 - Backend supports `CASHIER` role and APIs.
-- Tenant FE has no cashier routes.
-- Role redirect does not include `CASHIER`.
+- Tenant FE has cashier dashboard/orders placeholders.
+- Role redirect includes `CASHIER`.
 
 Impact:
 
@@ -111,8 +105,6 @@ Impact:
 
 Required:
 
-- Add cashier role to FE types.
-- Add `/cashier/...` routes.
 - Add order list/detail/checkout/cancel payment UI.
 - Add branch access and filters.
 
@@ -123,19 +115,22 @@ Current:
 - Source config has been moved to `scannow.site` / `api.scannow.site`.
 - Backend config includes `App:ProductionDomain=scannow.site`.
 - FE `SITE_CONFIG.baseUrl` and API env have been moved to the target production domains.
-- Runtime deployment env is still a separate concern and must be verified in Render/Vercel/DNS/CDN because provider env vars can override source config.
+- Runtime domains have been setup; verify provider env vars still match source config after deploy.
+- `business.scannow.site` is future-only. If wildcard DNS routes it to the tenant stack, it must be parked or added to reserved subdomain parsing before production use.
 
 Impact:
 
 - If deployment env still points to old domains, CORS wildcard tenant may not work.
 - If deployment env still points to old domains, SEO/sitemap can be wrong.
-- Static QR/payment redirects can still be wrong until tenant-aware URL generation is implemented.
+- Existing old QR records may still need regeneration/backfill.
+- If `business.scannow.site` reaches tenant FE/API without being reserved, `business` can be treated as a restaurant slug.
 
 Required:
 
 - Set and verify backend env for production.
 - Set and verify FE base URL/API URL in deployment provider.
 - Verify CORS preflight with `X-Tenant-Slug`.
+- Verify `business.scannow.site` returns a parked/future page or is ignored as reserved subdomain.
 
 ### P0.6 Secrets are present in repo config
 
@@ -291,16 +286,16 @@ Required for scale:
 
 ## 4. P2 Roadmap
 
-### P2.1 Central app portal
+### P2.1 Business portal
 
-Only add `app.scannow.site` if needed for:
+Only add `business.scannow.site` if needed for:
 
-- Multi-tenant user account.
+- Business account managing multiple restaurants.
 - Tenant switcher.
-- Support/admin impersonation.
-- Centralized onboarding.
+- Business-level users/permissions.
+- Business-level reports and billing.
 
-Do not add for MVP if tenant subdomain covers restaurant users.
+Do not add for MVP if tenant subdomain covers restaurant users and daily operations.
 
 ### P2.2 Tenant branding
 
@@ -345,12 +340,12 @@ Add:
 
 ### Phase 1: Domain readiness
 
-1. Configure DNS and deployment targets.
-2. Update FE base URLs and API URLs.
-3. Set backend `App:ProductionDomain=scannow.site`.
-4. Add dynamic tenant QR URL generation.
-5. Add dynamic tenant payment redirect.
-6. Rotate/remove secrets.
+1. Configure DNS and deployment targets. **Done**
+2. Update FE base URLs and API URLs. **Done**
+3. Set backend `App:ProductionDomain=scannow.site`. **Done**
+4. Add dynamic tenant QR URL generation. **Done**
+5. Add dynamic tenant payment redirect. **Done**
+6. Rotate/remove secrets. **Pending/ops**
 
 Deliverable:
 
@@ -359,13 +354,13 @@ Deliverable:
 
 ### Phase 2: Tenant customer MVP
 
-1. Build `/tables/[qrCodeToken]`.
-2. Build session join/menu/cart.
-3. Integrate `/hubs/cart`.
-4. Build place order.
-5. Build order tracking.
-6. Integrate `/hubs/orders`.
-7. Build payment return/cancel.
+1. Build `/tables/[qrCodeToken]`. **Done**
+2. Build QR-token auto join/menu/cart. **Done**
+3. Build place order. **Done**
+4. Build checkout. **Done**
+5. Build payment return/cancel. **Done**
+6. Integrate `/hubs/cart` and `/hubs/orders`. **Future hardening**
+7. Add richer order tracking page. **Future hardening**
 
 Deliverable:
 
@@ -414,7 +409,7 @@ Decision:
 ```text
 Use scannow.site for landing/admin.
 Use *.scannow.site for restaurant tenants.
-Do not add app.scannow.site for MVP.
+Reserve business.scannow.site for future business portal.
 ```
 
 Rationale:
@@ -422,12 +417,12 @@ Rationale:
 - Backend tenant model already maps subdomain to restaurant.
 - Owner/manager/staff/kitchen/cashier can all be scoped to tenant.
 - Customer QR flow must be tenant-scoped.
-- Adding `app.scannow.site` now would add routing/auth complexity without solving a current blocker.
+- Adding `business.scannow.site` now would add business-account data/auth complexity without solving the current single-restaurant tenant workflow.
 
 Revisit decision when:
 
 - One user can belong to multiple restaurants.
-- Restaurant staff should login without knowing tenant slug.
+- A business user manages multiple restaurant tenants.
 - A centralized portal becomes a product requirement.
 
 ## 7. Final Support Answer
@@ -437,12 +432,12 @@ Question: Da ho tro kien truc nay chua?
 ```text
 1. scannow.site + scannow.site/admin
 2. tenant.scannow.site
-3. No app.scannow.site unless needed
+3. business.scannow.site reserved for future business portal
 ```
 
 Answer:
 
-- `scannow.site` + `/admin`: **Gan du**, can config production URL/SEO/API and harden admin role guard.
-- `tenant.scannow.site`: **Backend da ho tro cot loi**, FE da gui tenant header, nhung **chua hoan tat san pham** vi thieu public ordering UI, QR URL dynamic, payment redirect dynamic, cashier UI.
-- `app.scannow.site`: **Khong can cho MVP** neu moi restaurant user vao tenant domain. Nen de reserved.
+- `scannow.site` + `/admin`: **Supported**, can still harden admin role guard and smoke test production.
+- `tenant.scannow.site`: **Supported for domain/customer QR MVP**, with remaining gaps in full cashier/staff/kitchen operations and production smoke testing.
+- `business.scannow.site`: **Future**, chi can khi business account quan ly nhieu restaurant.
 - Tenant = 1 nha hang, nha hang co nhieu chi nhanh: **Dung voi data model va backend hien tai**.

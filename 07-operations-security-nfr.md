@@ -330,8 +330,9 @@ P0:
 - Tenant slug extraction for `pho24.scannow.site`.
 - Axios includes `X-Tenant-Slug`.
 - Owner branch/user CRUD form validation.
-- Cashier route after implemented.
-- Public QR order flow after implemented.
+- Cashier placeholder route and redirect.
+- Public QR order flow on deployed tenant domain.
+- `business.scannow.site` does not resolve as tenant slug.
 
 ### 15.3 End-to-end tests
 
@@ -353,13 +354,15 @@ Critical E2E:
 - `scannow.site`, `*.scannow.site`, `api.scannow.site` DNS live.
 - TLS valid for apex/wildcard/API.
 - Backend `App:ProductionDomain=scannow.site`.
+- Backend `App:TenantBaseDomain=scannow.site`.
 - FE API URLs point to `api.scannow.site`.
 - FE base URLs use `scannow.site`.
-- Public QR pages implemented.
-- Payment pages implemented.
-- Cashier UI implemented.
+- Public QR pages implemented and smoke-tested.
+- Payment pages implemented and smoke-tested.
+- Cashier placeholder exists; full cashier checkout UI is still pending unless finished separately.
 - Tenant QR URL dynamic by restaurant slug.
 - Payment redirect dynamic by tenant slug.
+- `business.scannow.site` is parked/future-only or reserved in tenant slug parsing.
 - Cross-tenant tests pass.
 - Payment test transactions pass.
 - Backup/restore verified.

@@ -17,17 +17,16 @@
       - sends X-Tenant-Slug through src/services/axiosBasic.tsx
       - has partial owner/manager routes
       - has staff/kitchen placeholder routes
-
-  - Tenant frontend does not yet have:
       - /tables/[qrCodeToken]
       - /sessions/[sessionCode]/menu
       - /sessions/[sessionCode]/checkout
       - /payment/return
       - /payment/cancel
-      - cashier routes
+      - cashier dashboard/orders placeholder routes and CASHIER auth redirect
 
   - Backend public QR flow currently has:
       - GET /api/public/tables/{qrCodeToken}
+      - POST /api/public/tables/{qrCodeToken}/join
       - POST /api/public/sessions/join
       - GET /api/public/sessions/{sessionCode}/menu
       - POST /api/public/sessions/{sessionCode}/orders
@@ -36,8 +35,11 @@
       - POST /api/public/sessions/{sessionCode}/payment-cancel
       - GET /api/public/sessions/{sessionCode}/orders/{orderId}
 
-  - Missing backend API:
-      - POST /api/public/tables/{qrCodeToken}/join
+  - Runtime/domain state:
+      - Domains have been configured.
+      - FE builds were confirmed successful by the project owner.
+      - Backend build has NuGet audit warnings in this environment; ignore those per project owner unless compile errors appear.
+      - Still smoke test deployed tenant QR, PayOS return/cancel, CORS preflight, and `business.scannow.site` reserved/parked behavior.
 
   Goal of this phase:
 
@@ -48,8 +50,8 @@
 
   Out of scope for this phase:
 
-  - Do not implement business.scannow.site.
-  - Do not implement app.scannow.site.
+  - Do not implement business.scannow.site product surface.
+  - Do not route business.scannow.site into tenant app unless it is parked or reserved in slug parsing.
   - Do not solve the P1 risk where an old customer with a valid sessionCode can revisit an active session.
   - Do not build full kitchen/staff realtime dashboards.
   - Do not build full business multi-restaurant portal.
@@ -85,7 +87,7 @@
 
   business.scannow.site does not replace tenant domain. Daily restaurant operations still happen inside each restaurant subdomain.
 
-  app.scannow.site should not be used as a central app portal in docs or code. If it remains in reserved-subdomain lists, that is fine only to prevent tenant collision.
+  business.scannow.site should not be used as a central app portal in docs or code. It should be parked/future-only or included in reserved-subdomain lists to prevent tenant collision.
 
   ## 2. Backend Implementation
 
@@ -265,15 +267,9 @@
 
   ### 3.2 Update Role Redirect
 
-  Update src/lib/auth.ts.
+  Current implementation:
 
-  Current missing role:
-
-  CASHIER
-
-  Add:
-
-  CASHIER: PATH.cashier.dashboard
+  CASHIER: PATH.cashier.dashboard exists in src/lib/auth.ts.
 
   Keep:
 
@@ -287,7 +283,7 @@
 
   ### 3.3 Add Minimal Cashier Placeholder
 
-  Add:
+  Already added:
 
   src/app/cashier/dashboard/page.tsx
   src/app/cashier/orders/page.tsx
@@ -737,13 +733,13 @@
 
   Update docs after backend/FE code is implemented.
 
-  ### 4.1 Replace app.scannow.site
+  ### 4.1 Clarify business.scannow.site
 
   In all docs:
 
-  app.scannow.site
+  business.scannow.site
 
-  should not be described as central portal.
+  should not be described as the restaurant operations app.
 
   Replace product concept with:
 
@@ -753,11 +749,11 @@
 
   Future business portal for large customers managing multiple restaurants.
 
-  Allowed remaining mention:
+  Required remaining mention:
 
-  app is a reserved subdomain label to prevent tenant collision.
+  business is a future/parked subdomain label to prevent tenant collision until the business portal exists.
 
-  Do not describe app.scannow.site as a product surface.
+  Do not describe business.scannow.site as a current product surface.
 
   ### 4.2 Update QR Auto Join Explanation
 
@@ -929,4 +925,4 @@
       - join rules
       - accepted old-sessionCode risk
       - business.scannow.site future role
-      - no app.scannow.site product surface
+      - no business.scannow.site product surface
