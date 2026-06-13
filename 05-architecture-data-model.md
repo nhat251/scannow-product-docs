@@ -116,15 +116,14 @@ Responsibilities intended:
 - Owner/manager/staff/kitchen/cashier portal.
 - Public QR customer ordering.
 
-Current responsibilities implemented:
+Current responsibilities implemented (post `feature/SCRUM-30-customer-qr-session` merge):
 
-- Login.
-- Owner restaurant/branches/users.
-- Manager users.
-- Public QR/menu/checkout/payment result pages.
-- Cashier dashboard/orders placeholders.
-- Basic owner/manager/staff/kitchen dashboard routes/placeholders.
-- Tenant slug extraction and `X-Tenant-Slug` header.
+- Login, tenant slug extraction, `X-Tenant-Slug` header, role-based redirect/guard.
+- Owner/manager back office: restaurant, branches, users, category + menu-item management, table/QR management, branch orders, branch settings (VAT/service charge, PayOS payment-config, paper voucher), reports overview dashboard (Excel export).
+- `me/` waiter shell for staff/kitchen/branch-manager: open/close table sessions, branch menu availability, waiter confirm/serve, kitchen grouped queue.
+- Cashier: order list/detail, cash/PayOS checkout with voucher, cancel pending payment.
+- Public QR/menu/menu-item/checkout/order-tracking/payment-result pages.
+- SignalR clients for `/hubs/cart` and `/hubs/orders` (customer cart, customer order tracking, branch order updates).
 
 ## 4. Tenant Architecture
 
@@ -755,11 +754,12 @@ If frontend and API are on sibling domains (`pho24.scannow.site` and `api.scanno
 
 - QR URL generation is tenant-aware through `ITenantUrlBuilder`; old QR records created before the change may need regeneration/backfill.
 - PayOS return/cancel redirect is tenant-aware through `ITenantUrlBuilder`; production smoke test with real PayOS config is still required.
-- Tenant FE has public QR/menu/checkout/payment result pages; realtime order/cart tracking remains future hardening.
-- Tenant FE has cashier dashboard/orders placeholders and role redirect; full cashier order list/detail/checkout workflow is still incomplete.
-- Realtime FE client not integrated.
+- Tenant FE has the full customer QR/menu/checkout/order-tracking/payment flow plus realtime cart/order via SignalR (`useSharedCart`, `useOrderUpdates`, `useBranchOrderUpdates`).
+- Tenant FE cashier is a full order list/detail/checkout/cancel workflow (no longer placeholders); the `me/` shell covers staff/kitchen/branch-manager operations; owner/manager cover menu/table/settings/voucher/reports.
+- FE auth/user-management role enums include `CASHIER` and the owner/manager role pickers expose it.
+- Known build issue: `pnpm build` fails prerendering the built-in `/_global-error` page (`Cannot read properties of null (reading 'useContext')`) — pre-existing on `main`, Next 16 + React 19 + `reactCompiler`; must be fixed before a production build.
 - `ScanNow.Web/appsettings.json` currently includes `App:ProductionDomain` but not `App:TenantBaseDomain`; deployment env must set it.
 - Keep production secrets out of tracked config; rotate any values that may have been exposed through local files, logs, or deployment providers.
 - `SITE_CONFIG.baseUrl` has been moved to `https://scannow.site`; tenant-specific metadata is still a future improvement.
-- FE auth/user-management role enums include `CASHIER`, but owner user-management role picker still needs cashier option alignment.
+- SignalR backend hubs use memory cache with no backplane; multi-instance deploy needs Redis/distributed cache.
 - Backend supports enum string serialization; some FE types expect numeric table status.

@@ -917,7 +917,7 @@ BranchOrderUpdated(order)
 - Public QR flow now supports QR-token auto join through `POST /api/public/tables/{qrCodeToken}/join`; runtime smoke test is still required with real tenant domain and active table session.
 - Public cash checkout remains an accounting/product risk because public flow marks order `Completed` while creating a `PENDING` cash payment; product copy should treat it as "pay at cashier" until cashier confirmation exists.
 - QR URL and PayOS return/cancel URLs are tenant-aware through `ITenantUrlBuilder`; old persisted/printed QR records may need regeneration or backfill.
-- Backend supports `CASHIER`; tenant FE has auth redirect and placeholder cashier pages, but full cashier order list/detail/checkout UI is still incomplete.
+- Tenant FE now consumes the full operational API surface: `/api/me/...` (open/close sessions, availability), `/api/waiter/...`, `/api/kitchen/...`, `/api/cashier/...` (order list/detail/checkout/cancel + voucher), owner/manager menu/table/branch-settings/payment-config/paper-voucher/reports, and SignalR `/hubs/cart` + `/hubs/orders`. Remaining work is production smoke testing, not missing UI.
 - Backend serializes enums as strings; admin FE table status type currently numeric.
 - Tenant isolation should be tested for all direct child entity queries.
 - No OpenAPI schema appears configured for production exposure; development maps OpenAPI/Scalar only.

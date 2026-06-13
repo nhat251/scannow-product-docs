@@ -25,8 +25,8 @@ Ket luan quan trong:
 - Customer QR, owner, manager, staff, kitchen, cashier deu nam trong tenant domain `<tenant>.scannow.site`.
 - Platform admin nam rieng o `scannow.site/admin`.
 - Backend da co tenant resolution, global query filters, role auth, public QR APIs, cashier APIs, kitchen/waiter APIs, reports APIs, PayOS, QR generation va SignalR hubs.
-- Tenant FE da co owner/manager basic portal, customer QR/menu/checkout/payment pages, cashier placeholders, dashboard placeholders.
-- Remaining production gaps lon nhat: full cashier UI, staff/kitchen operational UI, FE SignalR integration, cross-tenant integration tests, production smoke test, dependency warning remediation.
+- Tenant FE (sau merge `feature/SCRUM-30-customer-qr-session`) da hien thuc gan nhu toan bo product: owner/manager back office (menu, table, settings, payment-config, voucher, reports), `me/` waiter shell cho staff/kitchen/branch-manager, full cashier, customer QR/menu/checkout/order-tracking/payment, va SignalR cart/order realtime.
+- Remaining production gaps lon nhat: production smoke test tren domain that, cross-tenant integration tests, SignalR backplane cho multi-instance, va dependency warning remediation.
 
 ## 2. Audit Sources
 
@@ -123,8 +123,9 @@ Tenant/back office:
 - Owner branch CRUD/status.
 - Owner user CRUD/status.
 - Manager user management.
-- Protected placeholder dashboards cho owner/manager/staff/kitchen.
-- Cashier dashboard/orders placeholder.
+- Owner/manager back office day du: menu/category, table/QR, branch settings (payment-config, voucher), reports overview dashboard.
+- `me/` waiter shell cho staff/kitchen/branch-manager: open/close session, branch menu availability, waiter confirm/serve, kitchen queue.
+- Cashier portal day du: order list/detail, cash/PayOS checkout, voucher, cancel pending payment.
 
 Customer QR:
 
@@ -232,9 +233,9 @@ Main needs:
 
 Current FE:
 
-- Manager users page implemented.
-- Dashboard/report/operations UI not wired.
-- Manager form currently exposes STAFF and KITCHEN only.
+- Manager users page implemented; role picker exposes STAFF/KITCHEN/CASHIER.
+- Manager menu/table management, branch orders, branch settings (payment-config, voucher), and reports overview dashboard implemented (scoped to managed branch).
+- Branch operations available via the `me/` waiter shell.
 
 ### 5.4 Staff/Waiter
 
@@ -251,8 +252,7 @@ Main needs:
 
 Current FE:
 
-- Staff dashboard placeholder only.
-- Backend APIs exist.
+- Implemented via the `me/` waiter shell (`/me/branches/...`): open/close table session, branch menu availability, waiter confirm, ready-to-serve, mark served. Wired to `/api/me` + `/api/waiter` and SignalR `/hubs/orders`.
 
 ### 5.5 Kitchen
 
@@ -267,8 +267,7 @@ Main needs:
 
 Current FE:
 
-- Kitchen dashboard placeholder only.
-- Backend APIs exist.
+- Implemented via the `me/` kitchen page (`/me/branches/[branchId]/kitchen`): pending confirmation, confirm order/items, grouped queue, mark ready. Wired to `/api/kitchen` and SignalR `/hubs/orders`.
 
 ### 5.6 Cashier
 
@@ -285,9 +284,7 @@ Main needs:
 
 Current FE:
 
-- Cashier dashboard and orders placeholder exist.
-- Full order list/detail/checkout UI missing.
-- Backend APIs exist.
+- Full cashier UI implemented: order list/detail, cash/PayOS checkout with received/change, voucher code, PayOS QR/link, cancel pending payment (`/api/cashier/branches/{branchId}/orders/...`).
 
 ### 5.7 Public Customer
 
@@ -305,9 +302,8 @@ Main needs:
 
 Current FE:
 
-- Basic QR/menu/cart/order/checkout/payment pages exist.
-- Cart is local storage.
-- SignalR order/cart tracking is not integrated yet.
+- Full QR/menu/menu-item/cart/order/checkout/order-tracking/payment pages implemented.
+- Shared cart + order tracking via SignalR (`useSharedCart` -> `/hubs/cart`, `useOrderUpdates` -> `/hubs/orders`).
 
 ## 6. Repository Architecture
 
@@ -1159,12 +1155,11 @@ Published after:
 - Waiter confirm/served.
 - Cancel order.
 
-Important current limitation:
+Current state:
 
-- No FE SignalR client integration was found in either FE repo.
-- Tenant customer menu uses local storage cart.
-- Payment/order status pages use HTTP calls.
-- Multi-instance backend needs Redis/distributed cache and SignalR backplane.
+- Tenant FE integrates SignalR clients: `useSharedCart` (`/hubs/cart`), `useOrderUpdates` and `useBranchOrderUpdates` (`/hubs/orders`). Landing/admin FE has no SignalR (not needed).
+- Initial loads + payment/order status still use HTTP calls; SignalR layers on realtime updates.
+- Multi-instance backend still needs Redis/distributed cache and a SignalR backplane (hub uses memory cache).
 - Hub `JoinBranch` should be authorized/hardened before production scale.
 
 ## 12. Key User Flows
@@ -1210,8 +1205,7 @@ Customer can now scan QR
 
 Current FE:
 
-- Staff dashboard placeholder.
-- Backend API exists.
+- Implemented in the `me/` waiter shell (open/close session, branch tables).
 
 ### 12.4 Customer Orders
 
@@ -1230,8 +1224,8 @@ Customer checks out PayOS or pay at cashier
 
 Current FE:
 
-- Basic implemented.
-- No SignalR cart/order tracking.
+- Fully implemented incl. menu-item detail and a realtime order tracking page (`/sessions/{sessionCode}/orders/{orderId}`).
+- SignalR cart/order tracking wired (`/hubs/cart`, `/hubs/orders`).
 - Needs smoke test in production domain.
 
 ### 12.5 Kitchen Prepares
@@ -1247,8 +1241,7 @@ Waiter can serve ready items
 
 Current FE:
 
-- Kitchen UI placeholder.
-- Backend API exists.
+- Implemented in the `me/` kitchen page (grouped queue, confirm, mark ready) with SignalR branch updates.
 
 ### 12.6 Cashier Pays
 
@@ -1264,8 +1257,7 @@ Cashier can cancel pending payment
 
 Current FE:
 
-- Cashier placeholder only.
-- Backend API exists.
+- Fully implemented (`cashier-dashboard-page`): branch orders, detail, voucher, CASH/PAYOS checkout, cancel pending payment.
 
 ## 13. Security And Isolation
 
@@ -1393,38 +1385,38 @@ Production launch checklist:
 | Landing | Supported | i18n landing, lead capture. |
 | Platform admin | Supported/partial | Owner/restaurant CRUD and supervision; admin role guard hardening needed. |
 | Tenant auth | Supported | Login/refresh/protected routes, tenant header. |
-| Owner portal | Partial | Restaurant/branches/users done; menu/table/payment/voucher/reports missing. |
-| Manager portal | Partial | User management done; operations/report missing. |
-| Staff dashboard | Placeholder | Backend APIs exist. |
-| Kitchen dashboard | Placeholder | Backend APIs exist. |
-| Cashier portal | Placeholder | Backend APIs exist; full UI missing. |
-| Public QR ordering | Basic implemented | Needs production smoke test and richer tracking. |
+| Owner portal | Supported | Restaurant/branches/users + menu/table/settings/payment-config/voucher/reports. |
+| Manager portal | Supported | Same set scoped to managed branch. |
+| Staff/Kitchen/Branch-manager ops (`/me/*`) | Supported | Open/close session, availability, waiter confirm/serve, kitchen queue; SignalR branch updates. |
+| Cashier portal | Supported | Order list/detail/checkout (cash/PayOS)/voucher/cancel. |
+| Public QR ordering | Supported | + menu-item detail and realtime order tracking; needs production smoke test. |
 | Payments | Backend supported | PayOS/cash flows; public cash accounting risk. |
-| Reports | Backend supported | FE dashboards missing. |
-| Realtime | Backend hubs supported | FE client missing, scale backplane missing. |
+| Reports | Supported | Owner/manager overview dashboards wired (Excel export). |
+| Realtime | Supported | FE SignalR cart/order clients wired; scale backplane still missing. |
 | Tenant isolation | Strong in code | Needs integration tests. |
-| Build/lint | Mostly healthy | FE lint pass; backend build pass with warnings. |
+| Build/lint | Lint pass; build blocked | FE lint+typecheck pass; `pnpm build` fails on built-in `/_global-error` (pre-existing) due to environment dif error (can skip). Backend build pass with warnings. |
 
 ## 16. Major Risks And Gaps
 
 P0 before production:
 
-- Verify deployed tenant QR ordering end-to-end.
+- Verify deployed tenant QR ordering + operations (waiter/kitchen/cashier) + realtime end-to-end.
 - Verify PayOS return/cancel on tenant domain.
 - Set `App__TenantBaseDomain=scannow.site`.
-- Complete or clearly scope cashier UI.
 - Keep secrets out of git/provider logs.
 - Add cross-tenant tests.
 
 P1:
 
 - Fix backend dependency vulnerability warnings.
-- Align admin FE `TableStatus` string enum.
-- Normalize FE role types, especially `MANAGER` vs `BRANCH_MANAGER` and cashier picker.
-- Build staff/kitchen dashboards.
-- Build owner/manager menu/table/payment/voucher UI.
-- Integrate FE SignalR clients.
-- Add report dashboards.
+- Align admin FE `TableStatus` string enum (in `scan-now-nextjs`).
+- Drop the legacy `MANAGER` FE alias once nothing depends on it.
+- SignalR hub `JoinBranch` authorization + backplane for multi-instance.
+- Advanced reports/analytics and export breakdowns.
+
+Done (was P1):
+
+- Staff/kitchen operations (me/ shell), owner/manager menu/table/payment-config/voucher UI, FE SignalR clients, owner/manager report dashboards, cashier UI.
 
 P2:
 
@@ -1465,7 +1457,7 @@ ScanNow is a SaaS platform for restaurants that turns each restaurant into a ten
 
 Technically, the backend is an ASP.NET Core/.NET 10 API with EF Core/PostgreSQL, Identity/JWT, SignalR, PayOS, Cloudinary, SMTP and QR generation. The frontend is split into two Next.js 16 apps: one for landing and platform admin, one for the tenant app used by owners, staff and customers. The core architecture decision is tenant equals Restaurant, while Branch is the operational unit. Tenant isolation is handled by resolving X-Tenant-Slug or subdomain into TenantContext, then applying EF Core global query filters and login-time tenant access checks.
 
-The system already has the backend foundations and basic customer QR flow. The main remaining work is operational polish: full cashier UI, staff and kitchen dashboards, frontend SignalR, cross-tenant tests and production smoke tests.
+The system has the backend foundations plus a tenant FE that now implements the full product: owner/manager back office, the me/ waiter shell for staff/kitchen operations, the cashier workflow, the customer QR flow with realtime SignalR cart and order tracking. The main remaining work is production hardening: cross-tenant tests, a SignalR backplane for scale, and end-to-end smoke tests on a live tenant domain.
 ```
 
 ## 19. One-Page Summary For Slide Notes
@@ -1475,12 +1467,12 @@ ScanNow current state:
 - Backend foundation: strong.
 - Domain model: clear.
 - Tenant isolation: implemented, needs tests.
-- Customer QR flow: basic implemented.
+- Customer QR flow: fully implemented incl. realtime tracking.
 - Admin: usable.
-- Owner/manager: partial.
-- Staff/kitchen/cashier: backend ready, FE incomplete.
-- Realtime: backend ready, FE missing.
-- Production: needs env verification, smoke tests, dependency warning cleanup.
+- Owner/manager: full back office (menu/table/settings/voucher/reports).
+- Staff/kitchen/cashier: implemented (me/ shell + cashier UI).
+- Realtime: backend ready, FE SignalR clients wired.
+- Production: needs env verification, smoke tests, and dependency warning cleanup.
 
 Most important decisions:
 

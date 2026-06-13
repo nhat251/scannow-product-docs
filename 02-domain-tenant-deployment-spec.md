@@ -138,25 +138,24 @@ Expected deployment:
 
 ```text
 Host: *.scannow.site
-Routes Map:
+Routes Map (full list in `06-frontend-specs.md` §3.2):
   /login
-  /owner/dashboard
-  /owner/restaurant
-  /owner/branches
-  /owner/branches/create
-  /owner/branches/[id]
-  /owner/users
-  /manager/dashboard
-  /manager/users
-  /staff/dashboard
-  /kitchen/dashboard
-  /cashier/dashboard
-  /cashier/orders
+  /owner/dashboard | /restaurant | /users | /settings
+  /owner/branches[/create | /[id]]
+  /owner/branches/[id]/{categories,menu-items,tables,orders}
+  /owner/menu-items/[menuItemId][/price-history]
+  /manager/dashboard | /users | /settings | /orders
+  /manager/branches/[branchId]/{categories,menu-items,tables,orders}
+  /manager/menu-items/[menuItemId][/price-history]
+  /me/branches[/[branchId]/{menu,tables,orders,kitchen}]   # staff/kitchen/branch-manager ops
+  /me/tables/[tableId] | /me/menu-items/[menuItemId]
+  /staff/dashboard | /kitchen/dashboard                    # legacy placeholders, not login target
+  /cashier/dashboard | /cashier/orders                     # full cashier order/checkout UI
   /tables/[qrCodeToken]
-  /sessions/[sessionCode]/menu
+  /sessions/[sessionCode]/menu[/menu-items/[menuItemId]]
   /sessions/[sessionCode]/checkout
-  /payment/return
-  /payment/cancel
+  /sessions/[sessionCode]/orders/[orderId]                 # realtime order tracking
+  /payment/return | /payment/cancel
 ```
 
 Current tenant slug extraction:
@@ -169,10 +168,11 @@ Current tenant slug extraction:
 Current notes:
 
 - Tenant comments/config use `scannow.site`.
-- Public QR ordering pages exist; full production readiness still requires smoke test with real domain/data.
-- Cashier routes exist as placeholders and auth routing supports `CASHIER`; full cashier operations UI is still future work.
-- `UserRole` FE types include backend role `CASHIER`.
+- Public QR ordering + all operational/back-office surfaces exist; full production readiness still requires smoke test with real domain/data.
+- Cashier UI is a full order list/detail/checkout/cancel flow; auth routing supports `CASHIER`.
+- `UserRole` FE types include backend role `CASHIER`, and owner/manager role pickers expose it.
 - Tenant FE `SITE_CONFIG.baseUrl` is configured as `https://scannow.site`; tenant-specific metadata can be made host-aware later.
+- Known issue: `pnpm build` fails prerendering the built-in `/_global-error` page (pre-existing on `main`; Next 16 + React 19 + `reactCompiler`).
 
 ## 6. What Is `business.scannow.site`?
 
@@ -317,7 +317,7 @@ Backend hubs available:
 - `/hubs/cart`
 - `/hubs/orders`
 
-Current FE status: no SignalR client integration was found in `scan-now-customer`; customer menu uses local cart storage and payment/status pages use HTTP APIs. Realtime cart/order tracking remains future hardening.
+Current FE status: SignalR clients are wired in `scan-now-customer` — `useSharedCart` (`/hubs/cart`) for the shared cart and `useOrderUpdates` (`/hubs/orders`) for realtime order tracking on `/sessions/[sessionCode]/orders/[orderId]`; HTTP APIs back the initial loads and payment/status checks. Backend hub still uses memory cache (no backplane).
 
 ### 9.3 Dynamic QR URL generation
 
@@ -355,10 +355,11 @@ ADMIN, OWNER, BRANCH_MANAGER, STAFF, KITCHEN, CASHIER
 
 Tenant FE includes:
 
-- `CASHIER` role type.
-- `CASHIER -> /cashier/dashboard` redirect.
-- `/cashier/dashboard` and `/cashier/orders` placeholders.
-- User-management types include `CASHIER`, but owner role picker still exposes only `BRANCH_MANAGER`, `STAFF`, `KITCHEN`; manager user form exposes `STAFF`, `KITCHEN`.
+- All backend role types.
+- Redirects: `ADMIN -> /admin/dashboard`, `OWNER -> /owner/users`, `MANAGER/BRANCH_MANAGER/STAFF/KITCHEN -> /me/branches`, `CASHIER -> /cashier/dashboard`.
+- Full cashier UI at `/cashier/dashboard` + `/cashier/orders` (no longer placeholders).
+- `me/` waiter shell for `STAFF/KITCHEN/BRANCH_MANAGER` operations.
+- Owner role picker exposes `BRANCH_MANAGER/STAFF/KITCHEN/CASHIER`; manager user form exposes `STAFF/KITCHEN/CASHIER`.
 
 ## 10. Request Flow Examples
 

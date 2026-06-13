@@ -21,21 +21,22 @@ Vi con mot so thieu sot trong frontend va backend duoc tong hop qua bang trang t
 |---|---|---|---|
 | Landing (`scannow.site`) | `scan-now-nextjs` | Supported | Renders `SalesLanding` voi da ngon ngu vi/en. |
 | Platform Admin (`scannow.site/admin`) | `scan-now-nextjs` | Supported | Login + CRUD restaurant, owner, supervision branches. |
-| Owner Portal (`/owner/*`) | `scan-now-customer` | Partial | Co mot phan UI (Restaurant detail, branch/user list & CRUD). Thieu menu management, tables, payment config, vouchers, reports. |
-| Manager Portal (`/manager/*`) | `scan-now-customer` | Partial | Co mot phan UI (User management, branch access). Thieu live operations dashboard, reports. |
-| Staff Dashboard (`/staff/dashboard`) | `scan-now-customer` | Partial | Chi co placeholder, thieu API integration cho table open/close va waiter live view. |
-| Kitchen Dashboard (`/kitchen/dashboard`) | `scan-now-customer` | Partial | Chi co placeholder, thieu API integration cho kitchen grouped queue. |
-| Cashier Portal (`/cashier/*`) | `scan-now-customer` | Partial | Dashboard & Orders placeholders and auth routing added. |
-| Customer QR Ordering | `scan-now-customer` | Supported | Table QR redirection, menu page, cart storage, checkout/payment result pages implemented. |
+| Owner Portal (`/owner/*`) | `scan-now-customer` | Supported | Restaurant, branch/user CRUD, category + menu-item management, table/QR management, branch orders, branch settings (VAT/service charge, PayOS payment-config, paper voucher), reports overview dashboard. |
+| Manager Portal (`/manager/*`) | `scan-now-customer` | Supported | Same feature set as owner, scoped to the managed branch (users, menu, table, orders, settings, reports). |
+| Staff / Kitchen / Branch-Manager ops (`/me/*`) | `scan-now-customer` | Supported | `me/` waiter shell: open/close sessions, branch menu availability, waiter confirm/serve, kitchen grouped queue. Wired to `/api/me`, `/api/waiter`, `/api/kitchen` + `/hubs/orders`. |
+| Cashier Portal (`/cashier/*`) | `scan-now-customer` | Supported | Order list/detail, cash/PayOS checkout, voucher, cancel pending payment. |
+| Customer QR Ordering | `scan-now-customer` | Supported | Auto-join, menu + shared cart, menu-item detail, checkout, realtime order tracking, payment result; SignalR cart/order wired. |
 | Tenant-aware QR URL | Backend `ScanNow` | Supported | `ITenantUrlBuilder` sinh `https://{restaurantSlug}.scannow.site/tables/{qrCodeToken}`. |
 | Tenant-aware Redirect | Backend `ScanNow` | Supported | PayOS return/cancel sinh ve dung tenant domain. |
 
 ### Gaps Hien Tai Theo Role & Module
 
-1. **Owner/Manager**: Da co mot phan UI ve mat thong tin co ban va user management. Thieu toan bo phan menu/table management va reports.
-2. **Staff/Kitchen**: Dang o dang placeholder tinh, chua ket noi thuc te voi backend va SignalR.
-3. **Cashier**: Da co dashboard/orders placeholder va role redirect, nhung chua co order list/detail/checkout UI day du.
-4. **Customer QR Ordering**: Da co route co ban cho QR/menu/cart/order/checkout/payment result; can smoke test domain + PayOS + data that.
+> Sau khi merge `feature/SCRUM-30-customer-qr-session`, tenant FE da hien thuc gan nhu toan bo product. Cac gap "thieu UI" o ban truoc da duoc dong.
+
+1. **Owner/Manager**: Day du UI cho restaurant/branch/user, menu/category, table/QR, branch settings (payment-config, voucher), reports overview. Con lai: advanced analytics/export breakdowns.
+2. **Staff/Kitchen/Branch Manager**: Hien thuc qua `me/` waiter shell, ket noi `/api/me`, `/api/waiter`, `/api/kitchen` va SignalR `/hubs/orders`. Con lai: smoke test voi order traffic that.
+3. **Cashier**: Day du order list/detail/checkout (cash/PayOS)/voucher/cancel.
+4. **Customer QR Ordering**: Day du QR/menu/menu-item/cart/order/checkout/order-tracking/payment-result + SignalR; con lai: smoke test domain + PayOS + data that.
 
 ### Audit verification 2026-06-13
 
@@ -43,7 +44,8 @@ Vi con mot so thieu sot trong frontend va backend duoc tong hop qua bang trang t
 |---|---|---|
 | Backend `dotnet build ScanNow.slnx --no-restore` | Pass | 0 errors, 14 warnings. Warnings include AutoMapper high severity advisory, MailKit/MimeKit moderate advisories, nullable warnings, and one unread parameter. |
 | Landing/Admin FE `pnpm lint` on audited `main` | Pass | Temporary worktree needed `pnpm install --frozen-lockfile` first. |
-| Tenant/Portal FE `pnpm lint` on `main` | Pass | ESLint and `tsc --noEmit` pass. |
+| Tenant/Portal FE `pnpm lint` on `main` (post-merge) | Pass | ESLint and `tsc --noEmit` pass after the SCRUM-30 merge resolution. |
+| Tenant/Portal FE `pnpm build` on `main` | Fail | Compiles + type-checks + generates all real pages, but prerender of the built-in `/_global-error` throws `Cannot read properties of null (reading 'useContext')`. It is environment diff error, can skip |
 
 ---
 
@@ -99,23 +101,18 @@ Required:
 - Smoke test PayOS return/cancel on tenant domain.
 - Confirm deployment env does not override source config with old domain values.
 
-### P0.4 Cashier UI incomplete
+### P0.4 Cashier UI — implemented
 
 Current:
 
 - Backend supports `CASHIER` role and APIs.
-- Tenant FE has cashier dashboard/orders placeholders.
-- Role redirect includes `CASHIER`.
+- Tenant FE has a full cashier UI: order list/detail, cash/PayOS checkout with voucher, cancel pending payment (`/api/cashier/branches/{branchId}/orders/...`), branch access + filters.
+- Role redirect: `CASHIER -> /cashier/dashboard`.
 
-Impact:
+Remaining:
 
-- Cash payment/voucher operations cannot be used in UI.
-- Public cash checkout has weaker accounting than cashier checkout.
-
-Required:
-
-- Add order list/detail/checkout/cancel payment UI.
-- Add branch access and filters.
+- Smoke test cash amount-received/change, PayOS QR/link, and voucher application on a deployed tenant.
+- Public cash checkout still has weaker accounting than cashier checkout (see P1.2).
 
 ### P0.5 Production domain deployment verification pending
 
@@ -216,19 +213,16 @@ Recommended:
 
 Current:
 
-- Backend role: `BRANCH_MANAGER`.
-- FE also has `MANAGER` in auth redirect map.
-- Backend role: `CASHIER`.
-- Tenant FE user-management type/options do not fully include `CASHIER`.
+- Backend role: `BRANCH_MANAGER`; FE keeps a legacy `MANAGER` key in the auth redirect map (compatibility).
+- Owner/manager user-management role pickers now include `CASHIER` (`BRANCH_MANAGER/STAFF/KITCHEN/CASHIER` for owner; `STAFF/KITCHEN/CASHIER` for manager).
 
 Impact:
 
-- Login redirects and user creation can fail/omit roles.
+- Mostly resolved. The only residue is the legacy `MANAGER` alias kept for compatibility.
 
 Required:
 
-- Normalize frontend roles to backend enum.
-- Add compatibility mapping only where needed.
+- Optionally drop the legacy `MANAGER` alias once nothing depends on it.
 
 ### P1.4 Enum serialization mismatch
 
@@ -249,34 +243,25 @@ Required:
 AVAILABLE | OCCUPIED | RESERVED | DISABLED
 ```
 
-### P1.5 Owner/manager operational UI incomplete
+### P1.5 Owner/manager operational UI — implemented
 
 Current:
 
-- Owner FE covers restaurant/branches/users.
-- Backend supports menu/table/payment/voucher/reports.
+- Owner/manager FE now covers restaurant/branches/users, menu/category management, table/QR management, branch payment config, paper voucher management, and reports overview dashboard.
 
-Required:
+Remaining:
 
-- Add menu/category management.
-- Add table/QR management.
-- Add branch payment config.
-- Add paper voucher management.
-- Add reports.
+- Advanced reports/analytics and export breakdowns (P2.4).
 
-### P1.6 Kitchen/staff dashboards incomplete
+### P1.6 Kitchen/staff dashboards — implemented (me/ shell)
 
 Current:
 
-- Backend has kitchen/waiter APIs.
-- FE dashboards are not fully wired.
+- The `me/` waiter shell wires staff table open/close, waiter pending/ready-to-serve, kitchen grouped items, and SignalR branch subscription (`useBranchOrderUpdates` -> `/hubs/orders`, `JoinBranch`).
 
-Required:
+Remaining:
 
-- Staff table open/close UI.
-- Waiter pending/ready-to-serve UI.
-- Kitchen grouped items UI.
-- SignalR branch subscription.
+- Smoke test under live order traffic; SignalR hub-side branch authorization review (see P0.7).
 
 ### P1.7 SignalR scaling
 
@@ -382,8 +367,8 @@ Deliverable:
 3. Build place order. **Done**
 4. Build checkout. **Done**
 5. Build payment return/cancel. **Done**
-6. Integrate `/hubs/cart` and `/hubs/orders`. **Future hardening**
-7. Add richer order tracking page. **Future hardening**
+6. Integrate `/hubs/cart` and `/hubs/orders`. **Done**
+7. Add richer order tracking page. **Done** (`/sessions/[sessionCode]/orders/[orderId]`)
 
 Deliverable:
 
@@ -391,15 +376,15 @@ Deliverable:
 
 ### Phase 3: Restaurant operations MVP
 
-1. Add cashier routes and UI.
-2. Add kitchen grouped queue.
-3. Add waiter ready-to-serve and table open/close.
-4. Add branch payment config UI.
-5. Add voucher UI.
+1. Add cashier routes and UI. **Done**
+2. Add kitchen grouped queue. **Done** (me/ kitchen page)
+3. Add waiter ready-to-serve and table open/close. **Done** (me/ shell)
+4. Add branch payment config UI. **Done** (owner/manager settings)
+5. Add voucher UI. **Done** (paper voucher in settings + cashier voucher)
 
 Deliverable:
 
-- Staff/kitchen/cashier can run a service shift.
+- Staff/kitchen/cashier can run a service shift. **UI complete; pending production smoke test.**
 
 ### Phase 4: Security and scale
 
@@ -415,7 +400,7 @@ Deliverable:
 
 ### Phase 5: Reports and polish
 
-1. Owner/manager/admin reports UI.
+1. Owner/manager reports overview UI **Done**; admin reports UI (in `scan-now-nextjs`) and advanced analytics/export still pending.
 2. Better error states.
 3. Tenant branding.
 4. SEO/privacy/legal pages.
@@ -461,6 +446,6 @@ Question: Da ho tro kien truc nay chua?
 Answer:
 
 - `scannow.site` + `/admin`: **Supported**, can still harden admin role guard and smoke test production.
-- `tenant.scannow.site`: **Supported for domain/customer QR MVP**, with remaining gaps in full cashier/staff/kitchen operations and production smoke testing.
+- `tenant.scannow.site`: **Supported** — owner/manager back office, staff/kitchen/cashier operations, and the customer QR flow are all implemented with realtime SignalR.
 - `business.scannow.site`: **Future**, chi can khi business account quan ly nhieu restaurant.
 - Tenant = 1 nha hang, nha hang co nhieu chi nhanh: **Dung voi data model va backend hien tai**.

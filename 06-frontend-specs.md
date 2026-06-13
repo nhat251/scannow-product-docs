@@ -133,23 +133,57 @@ This aligns with the audited backend branch `test/deploy`.
 /                         home
 /login                    login
 /admin/dashboard          placeholder/protected
-/owner/dashboard          placeholder/protected
+
+# Owner portal
+/owner/dashboard          reports overview dashboard
 /owner/restaurant         owner restaurant page
+/owner/users              owner user management
+/owner/settings           branch settings (VAT/service charge, PayOS payment-config, paper voucher)
 /owner/branches           owner branches list
 /owner/branches/create    create branch
 /owner/branches/[id]      branch detail/edit
-/owner/users              owner user management
-/manager/dashboard        placeholder/protected
+/owner/branches/[id]/categories[/create | /[categoryId]]   category management
+/owner/branches/[id]/menu-items[/create]                   branch menu-item list/create
+/owner/branches/[id]/tables[/create | /[tableId]]          table/QR management
+/owner/branches/[id]/orders                                branch orders
+/owner/menu-items/[menuItemId][/price-history]             menu-item detail + price history
+
+# Manager portal (same set, scoped to managed branch)
+/manager/dashboard        reports overview dashboard
 /manager/users            manager user management
-/staff/dashboard          placeholder/protected
-/kitchen/dashboard        placeholder/protected
-/cashier/dashboard        cashier placeholder/protected
-/cashier/orders           cashier orders placeholder/protected
-/tables/[qrCodeToken]     public QR entry and auto-join
-/sessions/[sessionCode]/menu
-/sessions/[sessionCode]/checkout
+/manager/settings         branch settings
+/manager/orders           branch orders
+/manager/branches/[branchId]/categories[/create | /[categoryId]]
+/manager/branches/[branchId]/menu-items[/create]
+/manager/branches/[branchId]/tables[/create | /[tableId]]
+/manager/branches/[branchId]/orders
+/manager/menu-items/[menuItemId][/price-history]
+
+# Staff / Kitchen / Branch Manager operations (me/ waiter shell)
+/me/branches                              my branches
+/me/branches/[branchId]                   branch detail
+/me/branches/[branchId]/menu              branch menu + toggle availability
+/me/branches/[branchId]/tables            open/close table sessions
+/me/branches/[branchId]/orders            branch orders (waiter)
+/me/branches/[branchId]/kitchen           kitchen grouped queue
+/me/tables/[tableId]                      table detail
+/me/menu-items/[menuItemId]               menu-item detail
+/staff/dashboard                          legacy placeholder (kept; not the login target)
+/kitchen/dashboard                        legacy placeholder (kept; not the login target)
+
+# Cashier portal
+/cashier/dashboard        order list/detail + checkout cash/PayOS + voucher + cancel payment
+/cashier/orders           cashier orders
+
+# Public customer QR
+/tables/[qrCodeToken]                         public QR entry and auto-join
+/sessions/[sessionCode]/menu                  session menu + shared cart
+/sessions/[sessionCode]/menu-items/[menuItemId]   menu-item detail
+/sessions/[sessionCode]/checkout              place order + checkout
+/sessions/[sessionCode]/orders/[orderId]      order tracking (realtime)
 /payment/return
 /payment/cancel
+
 /robots.ts
 /sitemap.ts
 ```
@@ -199,23 +233,24 @@ Files:
 - `src/stores/user`
 - `src/components/auth/protected-route.tsx`
 
-Current redirect map:
+Current redirect map (`src/lib/auth.ts`):
 
 ```text
 ADMIN          -> /admin/dashboard
 OWNER          -> /owner/users
 MANAGER        -> /manager/users
-BRANCH_MANAGER -> /manager/users
-STAFF          -> /staff/dashboard
-KITCHEN        -> /kitchen/dashboard
+BRANCH_MANAGER -> /me/branches
+STAFF          -> /me/branches
+KITCHEN        -> /me/branches
 CASHIER        -> /cashier/dashboard
 ```
 
-Gap:
+Notes:
 
-- Type includes `MANAGER`, but backend role is `BRANCH_MANAGER`.
-- Auth and user-management types include `CASHIER`, but owner role picker still needs cashier option alignment.
-- Cashier pages currently exist as placeholders, not full order list/detail/checkout UI.
+- `BRANCH_MANAGER`, `STAFF`, `KITCHEN` now land on the `me/` waiter shell (`/me/branches`), aligned with the backend `/api/me/...` operational model. `/staff/dashboard` and `/kitchen/dashboard` routes still exist but are not the login target.
+- `MANAGER` is a legacy FE-only key kept for compatibility; backend role is `BRANCH_MANAGER`.
+- Owner/manager user role picker now exposes `BRANCH_MANAGER/STAFF/KITCHEN/CASHIER`.
+- Cashier pages are now a full order list/detail/checkout/cancel UI (no longer placeholders).
 
 ### 3.6 Owner portal implemented
 
@@ -243,11 +278,17 @@ Owner UI supports:
 - Branch filters/sorting/paging.
 - User filters/sorting/paging.
 
-Gaps:
+Now also implemented (post SCRUM-30 merge):
 
-- Owner user role options do not expose `CASHIER` yet, although shared user-management types include it.
-- Owner does not manage menu/tables/payment config/vouchers from current FE.
-- Owner dashboard/reports not wired.
+- Owner user role picker exposes `BRANCH_MANAGER/STAFF/KITCHEN/CASHIER`.
+- Category + menu-item management (CRUD, reorder, active/inactive, toggle availability, bulk availability, toggle featured, image upload, price update + price history).
+- Table/QR management (CRUD, status, activate/deactivate, regenerate-qr, qr-image) and branch orders view.
+- Branch settings: VAT/service charge, PayOS `payment-config`, paper voucher management.
+- Owner dashboard wired to `GET /api/owner/reports/overview` (with Excel export).
+
+Remaining gaps:
+
+- Reports UI is overview-level; advanced analytics/export breakdowns are still future work.
 
 ### 3.7 Manager portal implemented
 
@@ -267,34 +308,31 @@ Manager UI supports:
 - Branch multi-select/filter UI.
 - Role/status filters.
 
-Gaps:
+Now also implemented (post SCRUM-30 merge):
 
-- Backend requires exactly one branch for managed user.
-- UI may suggest multi-select behavior; ensure it only submits one branch.
-- Manager role options are currently kitchen/staff only.
-- Manager dashboard/reports/menu/table operations not wired.
+- Manager role picker exposes `STAFF/KITCHEN/CASHIER`.
+- Manager menu/category management, table/QR management, branch orders, branch settings (payment-config, paper voucher), and reports overview dashboard — same feature set as owner, scoped to the managed branch (`/manager/...`).
 
-### 3.8 Staff/Kitchen dashboards
+Remaining gaps:
 
-Routes exist:
+- Backend requires exactly one branch for managed user; ensure the UI only submits one branch even if the multi-select control suggests otherwise.
 
-```text
-/staff/dashboard
-/kitchen/dashboard
-```
+### 3.8 Staff/Kitchen operations (me/ waiter shell)
 
-Backend has APIs for:
+Staff, Kitchen, and Branch Manager now operate through the `me/` waiter shell (`/me/branches/...`), the login target for these roles. Legacy `/staff/dashboard` and `/kitchen/dashboard` routes still exist but are not used as the entry point.
 
-- Table open/close.
-- Pending confirmation.
-- Ready to serve.
-- Kitchen grouped items.
-- Mark ready/served.
+Implemented and wired to backend:
 
-Current FE gap:
+- List my branches, branch detail (`GET /api/me/branches`, `/api/me/branches/{id}`).
+- Branch menu with toggle availability + bulk availability (`/api/me/branches/{id}/menu`, `/api/me/menu-items/{id}/toggle-available`, `/api/me/branches/{id}/menu-items/bulk-availability`).
+- Table list + open/close session (`/api/me/branches/{id}/tables`, `/api/me/branches/{branchId}/tables/{tableId}/open`, `/api/me/sessions/{sessionId}/close`, `/api/me/tables/{id}`, `/api/me/tables/{id}/orders`).
+- Waiter order lifecycle: pending confirmation, confirm, ready-to-serve, mark served, manual order (`/api/waiter/...`).
+- Kitchen queue: grouped items, confirm, mark ready (`/api/kitchen/...`).
+- SignalR branch order subscription via `useBranchOrderUpdates` (`/hubs/orders`, `JoinBranch`).
 
-- Dashboards are not fully integrated with these APIs.
-- No SignalR branch order subscription.
+Remaining:
+
+- Runtime smoke test under a live branch with real order traffic.
 
 ### 3.9 Cashier UI partial
 
@@ -305,19 +343,18 @@ Backend supports:
 - Cash/PayOS checkout.
 - Voucher application.
 
-Tenant FE currently has:
+Tenant FE now implements (post SCRUM-30 merge):
 
-- `/cashier/dashboard`.
-- `/cashier/orders`.
-- Cashier role redirect.
+- `/cashier/dashboard` with order list + detail (`GET /api/cashier/branches/{branchId}/orders`, `/orders/{orderId}`).
+- Checkout form for cash/PayOS with voucher code input (`POST /api/cashier/branches/{branchId}/orders/{orderId}/checkout`).
+- Cancel pending payment (`POST /api/cashier/branches/{branchId}/orders/{orderId}/payment-cancel`).
+- Cashier role redirect to `/cashier/dashboard`.
 
-Tenant FE still misses:
+Remaining:
 
-- Cashier order list/detail.
-- Cashier checkout form.
-- Payment cancel action.
+- Runtime smoke test of cash amount-received/change and PayOS QR/link on a deployed tenant.
 
-Minimum cashier screens:
+Minimum cashier screens (now covered):
 
 1. Branch selector or auto branch from user assignment.
 2. Active orders list with filters.
@@ -328,14 +365,16 @@ Minimum cashier screens:
 7. PayOS QR/link display.
 8. Cancel pending payment.
 
-### 3.10 Public customer QR app implemented basic
+### 3.10 Public customer QR app
 
 Implemented routes:
 
 ```text
-/tables/[qrCodeToken]
-/sessions/[sessionCode]/menu
-/sessions/[sessionCode]/checkout
+/tables/[qrCodeToken]                          auto-join active session
+/sessions/[sessionCode]/menu                   menu + shared cart
+/sessions/[sessionCode]/menu-items/[menuItemId]   menu-item detail
+/sessions/[sessionCode]/checkout               place order + checkout
+/sessions/[sessionCode]/orders/[orderId]       realtime order tracking
 /payment/return
 /payment/cancel
 ```
@@ -363,12 +402,16 @@ Implemented API calls:
 - `POST /api/public/sessions/{sessionCode}/payment-cancel`
 - `GET /api/public/sessions/{sessionCode}/orders/{orderId}`
 
+Now also implemented (post SCRUM-30 merge):
+
+- FE SignalR clients: shared cart (`useSharedCart` -> `/hubs/cart`) and order tracking (`useOrderUpdates` -> `/hubs/orders`).
+- Standalone order tracking page (`/sessions/[sessionCode]/orders/[orderId]`) with realtime status.
+- Menu-item detail page (`GET /api/public/branches/{branchId}/menu-items/{menuItemId}`).
+
 Current gaps:
 
-- No FE SignalR client integration for `/hubs/cart` or `/hubs/orders`.
-- No rich standalone order tracking timeline/page.
 - Needs deployed-domain smoke test with active table session, real menu data, tenant header, PayOS return/cancel.
-- Public cash checkout should be treated as "pay at cashier" until cashier confirms payment.
+- Public cash checkout is labelled "pay at cashier" but backend still marks the order `Completed` with a `PENDING` payment until cashier confirmation.
 
 ### 3.11 Tenant FE domain requirements
 
@@ -406,17 +449,20 @@ P0:
 
 - Set production `NEXT_PUBLIC_API_URL`.
 - Align enum types with backend string enums.
-- Add SignalR clients for cart/order.
-- Complete cashier order list/detail/checkout/cancel UI.
-- Smoke test tenant public QR ordering and PayOS return/cancel on deployed domains.
+- Smoke test tenant public QR ordering, operations (waiter/kitchen/cashier), realtime hubs, and PayOS return/cancel on deployed domains.
 - Keep tenant comments/config aligned to `scannow.site`.
+
+Done (was P0/P1):
+
+- SignalR cart/order clients — implemented (`useSharedCart`, `useOrderUpdates`, `useBranchOrderUpdates`).
+- Cashier order list/detail/checkout/cancel UI — implemented.
+- Owner/manager menu/table/payment-config/voucher UI — implemented.
+- Staff/kitchen operations — implemented via the `me/` waiter shell.
+- Owner/manager reports overview dashboards — implemented.
 
 P1:
 
-- Owner/manager menu/table/payment/voucher UI.
-- Staff/kitchen operational dashboards.
-- Reports dashboards.
-- Admin role guard hardening.
+- Admin role guard hardening (in `scan-now-nextjs`).
 - Better route-level loading/error states.
 
 P2:
@@ -436,6 +482,8 @@ P2:
 - Branch manager can manage users under branch.
 - Cashier user logs in and lands on cashier dashboard.
 - Customer QR URL loads table page under tenant domain.
-- Customer can place order; realtime status updates require FE SignalR integration.
+- Customer can place order; realtime status updates are delivered via the FE SignalR clients (`/hubs/cart`, `/hubs/orders`).
+- Branch manager / staff / kitchen land on the `me/` shell and can run table/menu/order operations.
+- Cashier can list orders and checkout cash/PayOS with voucher.
 - Payment return/cancel pages handle PayOS redirects.
 - No route uses legacy production metadata or links.

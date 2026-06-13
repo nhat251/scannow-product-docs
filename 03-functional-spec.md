@@ -19,12 +19,13 @@ Backend roles:
 ADMIN, OWNER, BRANCH_MANAGER, STAFF, KITCHEN, CASHIER
 ```
 
-Current frontend status:
+Current frontend status (post `feature/SCRUM-30-customer-qr-session` merge):
 
-- Tenant FE has `CASHIER` auth redirect and placeholder `/cashier/dashboard`, `/cashier/orders` pages.
-- Tenant FE has customer QR/menu/checkout/payment result routes.
-- Customer QR flow is implemented at basic route/UI level, but SignalR cart/order client and production smoke tests remain pending.
-- Remaining gaps are full cashier order workflow, staff/kitchen dashboards, realtime tracking hardening, and owner role-picker alignment for cashier creation.
+- Tenant FE implements all role surfaces: owner/manager back office (users, menu, tables, branch settings, payment-config, vouchers, reports), the `me/` waiter shell for staff/kitchen/branch-manager operations (open/close sessions, confirm/serve, kitchen queue), full cashier workflow (order list/detail/checkout/cancel + voucher), and the public customer QR/menu/checkout/order-tracking/payment flow.
+- Role redirect: `BRANCH_MANAGER/STAFF/KITCHEN -> /me/branches`, `CASHIER -> /cashier/dashboard`.
+- FE SignalR clients for `/hubs/cart` and `/hubs/orders` are wired (customer cart, customer order tracking, branch order updates).
+- Owner/manager user role picker includes `CASHIER`.
+- Remaining: production runtime smoke tests on a real tenant domain/PayOS, the public-CASH "pay at cashier" accounting note, and a pre-existing `pnpm build` failure on the built-in `/_global-error` page.
 
 ## 2. Landing Module
 
@@ -292,10 +293,10 @@ Validation:
 - Managed user must belong to exactly one branch.
 - Role must be one of backend managed roles.
 
-FE gap:
+FE status:
 
-- Tenant FE user-management types include `CASHIER`, but owner role picker currently exposes only `BRANCH_MANAGER`, `STAFF`, `KITCHEN`.
-- Manager UI appears to allow only `KITCHEN` and `STAFF`.
+- Owner user role picker exposes `BRANCH_MANAGER/STAFF/KITCHEN/CASHIER`; manager user role picker exposes `STAFF/KITCHEN/CASHIER` (`ROLE_OPTIONS` in `manager-users/user-form-dialog.tsx`).
+- UI still must submit exactly one branch per managed user to satisfy the backend validator.
 
 ## 5. Menu Management Module
 
@@ -444,7 +445,7 @@ https://{restaurantSlug}.scannow.site/tables/{qrCodeToken}
 6. FE loads session menu.
 7. Customer adds items to cart.
 8. Customer places order.
-9. Customer tracks order status; realtime tracking is intended but FE SignalR client is not wired yet.
+9. Customer tracks order status in realtime via the FE SignalR client (`useOrderUpdates` -> `/hubs/orders`) on `/sessions/[sessionCode]/orders/[orderId]`.
 10. Customer checks out via PayOS or cash-at-counter.
 
 ### 7.2 Backend APIs
@@ -469,12 +470,15 @@ Implemented in `scan-now-customer`:
 - `/payment/return` checks payment status.
 - `/payment/cancel` cancels pending public payment.
 
+Now also implemented:
+
+- FE SignalR clients for `/hubs/cart` (shared cart) and `/hubs/orders` (order tracking).
+- Standalone order tracking page `/sessions/[sessionCode]/orders/[orderId]` and a menu-item detail page.
+
 Current gaps:
 
-- No FE SignalR client integration for `/hubs/cart` or `/hubs/orders`.
-- No rich standalone order tracking timeline/page after checkout.
 - Runtime smoke test with deployed tenant domain, active table session, real branch/menu data, and PayOS config is still required.
-- Public cash checkout should be presented as "pay at cashier" until cashier confirms payment.
+- Public cash checkout is presented as "pay at cashier", but the backend still completes the order with a pending payment until cashier confirmation.
 
 ## 8. Shared Cart Module
 
@@ -510,7 +514,7 @@ Limitations:
 - Cart service uses memory cache, not durable storage.
 - No explicit session authorization in hub methods.
 - Multiple app instances would not share memory cache without distributed cache/backplane.
-- Current tenant FE customer cart uses `src/lib/customer-cart.ts` local storage; SignalR shared cart hub is not wired on the frontend yet.
+- Tenant FE now wires the SignalR shared cart hub via `useSharedCart` (`/hubs/cart`: `JoinSession`/`UpdateCart`/`ClearCart`/`LeaveSession`). Backend cart service still uses memory cache (no backplane), so multi-instance deploy needs a distributed cache.
 
 ## 9. Order Lifecycle
 
@@ -748,9 +752,9 @@ Admin dashboard includes:
 - platformGrowth
 - revenueByMonth
 
-FE gap:
+FE status:
 
-- Current tenant FE dashboards are not fully integrated with reports.
+- Owner and manager dashboards (`/owner/dashboard`, `/manager/dashboard`) are integrated with `GET /api/{portal}/reports/overview` via `report-dashboard-page`, including Excel export (`exceljs`).
 
 ## 12. Realtime Order Module
 
@@ -781,9 +785,9 @@ Publishers trigger updates after:
 - Cashier checkout.
 - Cancel order.
 
-FE gap:
+FE status:
 
-- No current FE SignalR integration found for cart/orders.
+- FE SignalR is integrated: `useSharedCart` (`/hubs/cart`), `useOrderUpdates` (customer order group), and `useBranchOrderUpdates` (`JoinBranch`/`BranchOrderUpdated`).
 
 ## 13. Functional Acceptance Criteria
 

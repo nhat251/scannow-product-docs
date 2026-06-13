@@ -337,10 +337,12 @@ P0:
 - Tenant slug extraction for `pho24.scannow.site`.
 - Axios includes `X-Tenant-Slug`.
 - Owner branch/user CRUD form validation.
-- Cashier placeholder route and redirect.
+- Cashier order list/detail/checkout/cancel flow and role redirect.
+- Owner/manager menu/table/settings/voucher/reports flows.
+- `me/` shell: open/close session, waiter confirm/serve, kitchen queue.
 - Public QR order flow on deployed tenant domain.
 - `business.scannow.site` does not resolve as tenant slug.
-- FE SignalR cart/order clients once implemented.
+- FE SignalR cart/order clients (`/hubs/cart`, `/hubs/orders`) deliver realtime updates.
 
 ### 15.3 End-to-end tests
 
@@ -367,8 +369,8 @@ Critical E2E:
 - FE base URLs use `scannow.site`.
 - Public QR pages implemented and smoke-tested.
 - Payment pages implemented and smoke-tested.
-- Cashier placeholder exists; full cashier checkout UI is still pending unless finished separately.
-- FE SignalR cart/order client integration is either completed or explicitly scoped out for launch.
+- Full cashier checkout UI implemented; smoke-test cash/PayOS/voucher on a deployed tenant.
+- FE SignalR cart/order client integration implemented (`/hubs/cart`, `/hubs/orders`); verify realtime on deployed domain.
 - Tenant QR URL dynamic by restaurant slug.
 - Payment redirect dynamic by tenant slug.
 - `business.scannow.site` is parked/future-only or reserved in tenant slug parsing.

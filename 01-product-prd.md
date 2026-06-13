@@ -193,27 +193,26 @@ business.scannow.site         Future business portal cho khach hang lon quan ly 
 
 ### 6.3 Da co trong FE tenant/portal `scan-now-customer`
 
-- Login page.
-- Tenant slug extraction tu browser hostname.
-- Axios interceptor gui `X-Tenant-Slug`.
-- Auth bootstrap + refresh token flow.
-- Protected route theo role.
-- Owner pages: restaurant, branches, users.
-- Manager users page.
-- Customer QR/order/payment routes: `/tables/[qrCodeToken]`, `/sessions/[sessionCode]/menu`, `/sessions/[sessionCode]/checkout`, `/payment/return`, `/payment/cancel`.
-- Cashier dashboard/orders placeholder va role redirect.
-- Placeholder/dashboard routes cho admin/owner/manager/staff/kitchen.
-- Public cart hien la client-side/local storage; backend shared cart hub co san nhung FE chua tich hop SignalR.
+> Cap nhat sau khi merge nhanh `feature/SCRUM-30-customer-qr-session` vao `main`: tenant FE da hien thuc gan nhu toan bo product (back office + van hanh + customer + realtime), thay cho trang thai placeholder truoc day.
+
+- Login page, tenant slug extraction tu browser hostname, Axios interceptor gui `X-Tenant-Slug`, auth bootstrap + refresh token flow, protected route theo role.
+- Role redirect sau login: `ADMIN -> /admin/dashboard`, `OWNER -> /owner/users`, `MANAGER/BRANCH_MANAGER/STAFF/KITCHEN -> /me/branches`, `CASHIER -> /cashier/dashboard`.
+- Owner portal: restaurant, branch CRUD/status, user CRUD/status (role picker da co `BRANCH_MANAGER/STAFF/KITCHEN/CASHIER`), quan ly category + menu item (CRUD/reorder/active/availability/featured/image/price + price history), quan ly table/QR (CRUD/status/regenerate-qr/qr-image), branch orders, branch settings (VAT/service charge, PayOS payment-config, paper voucher), reports overview dashboard (co export Excel).
+- Manager portal: tuong tu owner trong pham vi branch duoc giao (users, menu, table, orders, settings, reports).
+- `me/` waiter shell (`/me/branches/...`) cho Staff/Kitchen/Branch Manager: list branch, branch menu (toggle availability/bulk), branch tables, mo/dong table session, branch orders, kitchen queue, table detail, menu item detail. Dung `/api/me/...`, `/api/waiter/...`, `/api/kitchen/...`.
+- Cashier portal day du: order list/detail, checkout cash/PayOS, ap paper voucher, cancel pending payment (`/api/cashier/branches/{branchId}/orders/...`).
+- Customer QR/order/payment routes: `/tables/[qrCodeToken]` (auto-join), `/sessions/[sessionCode]/menu`, `/sessions/[sessionCode]/menu-items/[menuItemId]`, `/sessions/[sessionCode]/checkout`, `/sessions/[sessionCode]/orders/[orderId]` (order tracking), `/payment/return`, `/payment/cancel`.
+- SignalR FE da tich hop: shared cart hub (`/hubs/cart`) va order hub (`/hubs/orders`) cho customer cart, customer order tracking, va branch order updates (`@microsoft/signalr`).
 
 ### 6.4 Chua hoan tat end-to-end
 
-- Kitchen/staff dashboards hien chua day du API integration.
-- Cashier UI moi o muc placeholder, chua co order list/checkout UI day du.
-- Public QR ordering da co route co ban, can smoke test runtime voi domain that va data PayOS/branch thuc.
-- Public CASH checkout van la known accounting risk: backend public flow mark order `Completed` nhung payment `PENDING`; nen product-label la "pay at cashier" cho den khi cashier xac nhan.
+- `pnpm build` cua tenant FE hien fail khi prerender trang built-in `/_global-error` (`TypeError: Cannot read properties of null (reading 'useContext')`). Loi nay do khac biet ve moi truong, co the bo qua
+- Public QR ordering + cac man hinh van hanh da co day du UI/route nhung can smoke test runtime voi domain that va data PayOS/branch thuc.
+- Public CASH checkout van la known accounting risk: backend public flow mark order `Completed` nhung payment `PENDING`; FE da label la "pay at cashier" nhung accounting chi dut diem khi cashier xac nhan.
+- Backend `Branch.ServiceChargeFixed` chua duoc cong vao order calculation (chi dung `ServiceChargePercent`).
 - Production domain da setup; van can verify env provider khong override sai gia tri source.
 - Backend QR/payment tenant URL can `App:TenantBaseDomain=scannow.site`; `App:ProductionDomain` chi phuc vu wildcard CORS.
-- Frontend SignalR cart/order realtime chua duoc wire, du backend hub da co.
+- SignalR hub backend dung memory cache, chua co backplane/Redis -> multi-instance deploy can them distributed cache.
 
 ## 7. MVP Definition
 

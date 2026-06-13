@@ -45,23 +45,23 @@ Kien truc nay la huong dung va backend branch `test/deploy` da ho tro phan cot l
 - Admin APIs da co route theo slug: `/api/admin/restaurants/by-slug/{slug}`.
 - CORS allow wildcard subdomain cua `scannow.site` khi `App:ProductionDomain=scannow.site`.
 - QR URL va PayOS redirect da sinh dong theo tenant domain thong qua `ITenantUrlBuilder`; production phai set `App:TenantBaseDomain=scannow.site`.
-- Tenant FE da co public QR/order/payment routes co ban: `/tables/[qrCodeToken]`, `/sessions/[sessionCode]/menu`, `/sessions/[sessionCode]/checkout`, `/payment/return`, `/payment/cancel`.
+- Tenant FE (sau merge `feature/SCRUM-30-customer-qr-session`) da hien thuc gan nhu toan bo product: owner/manager back office (menu, table, settings, payment-config, voucher, reports), `me/` waiter shell cho staff/kitchen/branch-manager, full cashier, customer QR/menu/checkout/order-tracking/payment, va SignalR cart/order realtime.
 - Domain production da duoc setup; van can smoke test runtime sau moi lan deploy.
 
 Trang thai con lai:
 
 - Tenant FE (scan-now-customer) la app chung cho ca owner/manager/staff/kitchen/cashier/customer.
 - Landing/admin FE (scan-now-nextjs) chi giu landing va platform admin.
-- Quy trinh QR ordering, payment return/cancel dang duoc tich hop truc tiep tren tenant domain.
-- Cashier/staff/kitchen operational UI van con toi thieu/placeholder, chua phai full shift workflow.
-- FE chua co SignalR client cho cart/order realtime; backend hub da co.
+- FE SignalR client cho cart/order realtime da duoc wire (`/hubs/cart`, `/hubs/orders`); backend hub van dung memory cache (chua backplane).
+- Can production smoke test toan bo flow (QR, operations, PayOS, realtime) tren domain that.
 - Public CASH checkout hien van la known accounting risk vi public flow mark order `Completed` nhung payment van `PENDING`, nen nen xem la "pay at cashier" cho den khi cashier confirm.
 
 ## Audit verification 2026-06-13
 
 - Backend `dotnet build ScanNow.slnx --no-restore`: pass, 0 errors, 14 warnings.
 - Landing/Admin FE `pnpm lint` on audited `main` temp worktree: pass after temp `pnpm install --frozen-lockfile`.
-- Tenant/Portal FE `pnpm lint`: pass.
+- Tenant/Portal FE `pnpm lint` (post SCRUM-30 merge): pass (ESLint + `tsc --noEmit`).
+- Tenant/Portal FE `pnpm build`: fail — compiles/type-checks/generates all real pages, but prerender of built-in `/_global-error` throws `useContext` null (reproduces on pre-merge `main`; Next 16 + React 19 + `reactCompiler` but it is environment dif error (can skip)).
 - Backend warnings include NuGet vulnerability advisories for AutoMapper/MailKit/MimeKit and nullable/unread-parameter warnings; see roadmap/security docs.
 
 ## Development Guidelines & Quality Rules
