@@ -106,6 +106,11 @@ De dam bao chat luong code cho tat ca cac plan moi hoac tinh nang moi, cac quy t
 9. [ScanNow Presentation Source](09-scannow-presentation-source.md)
    Tai lieu tong hop dai, dung lam source cho NotebookLM/slide thuyet trinh: cong nghe, kien truc, flow, in-scope, gaps, future roadmap.
 
+## Ke hoach dang thuc hien
+
+- [Plan 06: Tach mot component moi file va Viet hoa toan bo tenant FE](plans/plan-06-single-component-vietnamese-ui-migration.md)
+  Audit va ke hoach migration chi tiet cho `scan-now-customer`: component boundary, hook/helper, mapper backend sang tieng Viet, test logic, E2E va visual regression de giu nguyen layout.
+
 ## Cach doc nhanh
 
 Neu can tra loi cau hoi domain:
